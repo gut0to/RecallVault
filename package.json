@@ -23,7 +23,8 @@
     "cli": "tsx src/cli.ts",
     "mcp": "tsx src/mcp.ts",
     "demo": "npm run build && node scripts/demo.mjs",
-    "evaluate": "npm run build && node scripts/evaluate.mjs"
+    "evaluate": "npm run build && node scripts/evaluate.mjs",
+    "benchmark": "npm run build && node scripts/benchmark.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
