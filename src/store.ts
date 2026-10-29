@@ -6,7 +6,7 @@ import {
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseMemory, serializeMemory } from './markdown.js';
-import { idSchema, memoryInputSchema, metadataSchema, projectSchema, searchSchema, VaultError,
+import { idSchema, memoryInputSchema, metadataSchema, sourceSchema, projectSchema, searchSchema, VaultError,
   type Memory, type MemoryInput, type SearchInput, type SearchResult } from './schema.js';
 
 const NOTE_DIR = 'RecallVault/memories';
@@ -139,6 +139,21 @@ export class MemoryStore {
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
     return notes;
+  }
+
+  addSources(id: string, project: string, sources: unknown): Memory {
+    idSchema.parse(id); project = projectSchema.parse(project);
+    const additions = sourceSchema.array().min(1).max(20).parse(sources);
+    return this.withLock(() => {
+      const memory = this.reconcile().find(m => m.id === id && m.project === project);
+      if (!memory) throw new VaultError('NOT_FOUND', 'Memory not found in this project');
+      const unique = new Map(memory.sources.map(source => [JSON.stringify(source), source]));
+      for (const source of additions) unique.set(JSON.stringify(source), source);
+      if (unique.size > 20) throw new VaultError('SOURCE_LIMIT', 'A memory supports at most 20 source entries');
+      if (unique.size === memory.sources.length) return memory;
+      const enriched = { ...memory, sources: [...unique.values()], updated: new Date().toISOString() };
+      this.atomicWrite(enriched); this.reconcile(); return enriched;
+    });
   }
 
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
