@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const projectSchema = z.string().trim().min(1).max(120);
+export const projectSchema = z.string().trim().min(1).max(120).refine(value => !/[\u0000-\u001f\u007f]/.test(value), 'Project cannot contain control characters');
 export const idSchema = z.uuid();
 export const sourceSchema = z.object({
   reference: z.string().trim().min(1).max(2000),

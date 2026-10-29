@@ -13,3 +13,5 @@ test('closed stores fail with a stable error before writing',t=>{
  const {store,vault}=fixture(t);store.close();assert.throws(()=>store.remember(input()),/closed/i);
  assert.equal(readdirSync(path.join(vault,'RecallVault','memories')).length,0);
 });
+
+test('project identifiers reject control characters',t=>{const {store}=fixture(t);assert.throws(()=>store.remember(input({project:'alpha\nsecret'})),/control characters/);});
