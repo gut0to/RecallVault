@@ -22,7 +22,8 @@
     "check": "npm run typecheck && npm test && npm run build",
     "cli": "tsx src/cli.ts",
     "mcp": "tsx src/mcp.ts",
-    "demo": "npm run build && node scripts/demo.mjs"
+    "demo": "npm run build && node scripts/demo.mjs",
+    "evaluate": "npm run build && node scripts/evaluate.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
