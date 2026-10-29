@@ -28,22 +28,22 @@ The server waits on stdin; starting it in a terminal does not open a chat UI. St
 
 ## Tools
 
-| Tool | Purpose | Important inputs |
-| --- | --- | --- |
-| `remember` | Store a sourced memory or return an active duplicate | project, title, content, kind, sources; optional status/tags |
-| `search_memory` | Ranked project-scoped keyword retrieval | project, query; optional limit, maxChars, includeHypotheses, includeSuperseded |
-| `get_memory` | Inspect a full current or historical memory | project, id |
-| `supersede_memory` | Create a confirmed replacement and retire its predecessor | id, replacement with the full memory input |
-| `forget_memory` | Remove a note and current searchable copy | project, id, confirm: true |
-| `reindex_memory` | Reconcile the disposable index | empty object |
-| `list_memories` | Paginated browsing | project, optional kind/status/limit/offset |
-| `memory_stats` | Summarize states, kinds and tags | project |
-| `memory_history` | Trace replacement history | project, id |
-| `build_context` | Sourced Markdown handoff | same schema as search |
-| `project_digest` | Digest active confirmed knowledge | project |
-| `add_memory_sources` | Enrich existing evidence | project, id, sources |
-| `confirm_memory` | Confirm an explicitly verified hypothesis | project, id, sources |
-| `import_memories` | Preview/apply reviewed records | memories, dryRun (defaults true) |
+| Tool                 | Purpose                                                   | Important inputs                                                               |
+| -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `remember`           | Store a sourced memory or return an active duplicate      | project, title, content, kind, sources; optional status/tags                   |
+| `search_memory`      | Ranked project-scoped keyword retrieval                   | project, query; optional limit, maxChars, includeHypotheses, includeSuperseded |
+| `get_memory`         | Inspect a full current or historical memory               | project, id                                                                    |
+| `supersede_memory`   | Create a confirmed replacement and retire its predecessor | id, replacement with the full memory input                                     |
+| `forget_memory`      | Remove a note and current searchable copy                 | project, id, confirm: true                                                     |
+| `reindex_memory`     | Reconcile the disposable index                            | empty object                                                                   |
+| `list_memories`      | Paginated browsing                                        | project, optional kind/status/limit/offset                                     |
+| `memory_stats`       | Summarize states, kinds and tags                          | project                                                                        |
+| `memory_history`     | Trace replacement history                                 | project, id                                                                    |
+| `build_context`      | Sourced Markdown handoff                                  | same schema as search                                                          |
+| `project_digest`     | Digest active confirmed knowledge                         | project                                                                        |
+| `add_memory_sources` | Enrich existing evidence                                  | project, id, sources                                                           |
+| `confirm_memory`     | Confirm an explicitly verified hypothesis                 | project, id, sources                                                           |
+| `import_memories`    | Preview/apply reviewed records                            | memories, dryRun (defaults true)                                               |
 
 Results contain both JSON text and `structuredContent`. Operational errors use `isError: true` with an error code and message. The SDK validates the input schema before calling the engine. Read/write and destructive-operation annotations help a host present appropriate controls; they are hints, not an authorization system.
 

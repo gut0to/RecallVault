@@ -11,10 +11,7 @@
           "reference": "session:offline"
         }
       ],
-      "tags": [
-        "database",
-        "offline"
-      ]
+      "tags": ["database", "offline"]
     },
     {
       "label": "concurrent",
@@ -28,10 +25,7 @@
           "excerpt": "latencymeasurement justified the change."
         }
       ],
-      "tags": [
-        "database",
-        "server"
-      ]
+      "tags": ["database", "server"]
     },
     {
       "label": "uncertain",
@@ -65,18 +59,14 @@
         "project": "alpha",
         "query": "offline SQLite"
       },
-      "expected": [
-        "offline"
-      ]
+      "expected": ["offline"]
     },
     {
       "input": {
         "project": "alpha",
         "query": "concurrent"
       },
-      "expected": [
-        "concurrent"
-      ]
+      "expected": ["concurrent"]
     },
     {
       "input": {
@@ -91,9 +81,7 @@
         "query": "Redis",
         "includeHypotheses": true
       },
-      "expected": [
-        "uncertain"
-      ]
+      "expected": ["uncertain"]
     },
     {
       "input": {
@@ -101,9 +89,7 @@
         "query": "postg",
         "prefix": true
       },
-      "expected": [
-        "concurrent"
-      ]
+      "expected": ["concurrent"]
     },
     {
       "input": {
@@ -118,30 +104,22 @@
         "project": "alpha",
         "query": "latencymeasurement"
       },
-      "expected": [
-        "concurrent"
-      ]
+      "expected": ["concurrent"]
     },
     {
       "input": {
         "project": "beta",
         "query": "offline"
       },
-      "expected": [
-        "foreign"
-      ]
+      "expected": ["foreign"]
     },
     {
       "input": {
         "project": "alpha",
         "query": "database",
-        "tags": [
-          "offline"
-        ]
+        "tags": ["offline"]
       },
-      "expected": [
-        "offline"
-      ]
+      "expected": ["offline"]
     }
   ]
 }

@@ -4,71 +4,384 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { MemoryStore, type MemoryInput } from '../src/index.js';
-const input = (extra: Partial<MemoryInput> = {}): MemoryInput => ({ project: 'alpha', title: 'Database', content: 'SQLite supports offline work.', kind: 'decision', sources: [{ reference: 'session:one' }], ...extra });
-function fixture(t: {after: (fn: () => void) => void}) {
- const vault=mkdtempSync(path.join(tmpdir(),'recallvault-extra-')); const store=new MemoryStore(vault);
- t.after(()=>{store.close();rmSync(vault,{recursive:true,force:true});}); return {store,vault};
+const input = (extra: Partial<MemoryInput> = {}): MemoryInput => ({
+  project: 'alpha',
+  title: 'Database',
+  content: 'SQLite supports offline work.',
+  kind: 'decision',
+  sources: [{ reference: 'session:one' }],
+  ...extra,
+});
+function fixture(t: { after: (fn: () => void) => void }) {
+  const vault = mkdtempSync(path.join(tmpdir(), 'recallvault-extra-'));
+  const store = new MemoryStore(vault);
+  t.after(() => {
+    store.close();
+    rmSync(vault, { recursive: true, force: true });
+  });
+  return { store, vault };
 }
-test('closed stores fail with a stable error before writing',t=>{
- const {store,vault}=fixture(t);store.close();assert.throws(()=>store.remember(input()),/closed/i);
- assert.equal(readdirSync(path.join(vault,'RecallVault','memories')).length,0);
+test('closed stores fail with a stable error before writing', (t) => {
+  const { store, vault } = fixture(t);
+  store.close();
+  assert.throws(() => store.remember(input()), /closed/i);
+  assert.equal(readdirSync(path.join(vault, 'RecallVault', 'memories')).length, 0);
 });
 
-test('project identifiers reject control characters',t=>{const {store}=fixture(t);assert.throws(()=>store.remember(input({project:'alpha\nsecret'})),/control characters/);});
+test('project identifiers reject control characters', (t) => {
+  const { store } = fixture(t);
+  assert.throws(() => store.remember(input({ project: 'alpha\nsecret' })), /control characters/);
+});
 
-test('edited metadata cannot contradict lifecycle or timestamp ordering',t=>{const {store,vault}=fixture(t);const m=store.remember(input()).memory;const p=path.join(vault,m.path);writeFileSync(p,readFileSync(p,'utf8').replace(/updated:.*$/m,'updated: 2000-01-01T00:00:00.000Z'));assert.throws(()=>store.reindex(),/updated cannot precede/);});
+test('edited metadata cannot contradict lifecycle or timestamp ordering', (t) => {
+  const { store, vault } = fixture(t);
+  const m = store.remember(input()).memory;
+  const p = path.join(vault, m.path);
+  writeFileSync(
+    p,
+    readFileSync(p, 'utf8').replace(/updated:.*$/m, 'updated: 2000-01-01T00:00:00.000Z'),
+  );
+  assert.throws(() => store.reindex(), /updated cannot precede/);
+});
 
-test('failed startup releases its SQLite handle',t=>{const {store,vault}=fixture(t);store.close();const lock=path.join(vault,'.recallvault','write.lock');writeFileSync(lock,'busy');assert.throws(()=>new MemoryStore(vault),/busy/);rmSync(lock);const next=new MemoryStore(vault);next.close();});
+test('failed startup releases its SQLite handle', (t) => {
+  const { store, vault } = fixture(t);
+  store.close();
+  const lock = path.join(vault, '.recallvault', 'write.lock');
+  writeFileSync(lock, 'busy');
+  assert.throws(() => new MemoryStore(vault), /busy/);
+  rmSync(lock);
+  const next = new MemoryStore(vault);
+  next.close();
+});
 
-test('failed metadata updates preserve the original note',t=>{const {store,vault}=fixture(t);const memory=store.remember(input()).memory;const file=path.join(vault,memory.path);const future=readFileSync(file,'utf8').replace(/created:.*$/m,'created: 2050-01-01T00:00:00.000Z').replace(/updated:.*$/m,'updated: 2050-01-01T00:00:00.000Z');writeFileSync(file,future);assert.throws(()=>store.addSources(memory.id,'alpha',[{reference:'review:new'}]),/updated cannot precede/);assert.equal(readFileSync(file,'utf8'),future);});
+test('failed metadata updates preserve the original note', (t) => {
+  const { store, vault } = fixture(t);
+  const memory = store.remember(input()).memory;
+  const file = path.join(vault, memory.path);
+  const future = readFileSync(file, 'utf8')
+    .replace(/created:.*$/m, 'created: 2050-01-01T00:00:00.000Z')
+    .replace(/updated:.*$/m, 'updated: 2050-01-01T00:00:00.000Z');
+  writeFileSync(file, future);
+  assert.throws(
+    () => store.addSources(memory.id, 'alpha', [{ reference: 'review:new' }]),
+    /updated cannot precede/,
+  );
+  assert.equal(readFileSync(file, 'utf8'), future);
+});
 
-test('source enrichment preserves identity and deduplicates evidence',t=>{const {store}=fixture(t);const m=store.remember(input()).memory;const enriched=store.addSources(m.id,'alpha',[{reference:'session:two'}]);assert.equal(enriched.id,m.id);assert.equal(enriched.sources.length,2);assert.equal(store.addSources(m.id,'alpha',[{reference:'session:two'}]).sources.length,2);assert.throws(()=>store.addSources(m.id,'beta',[{reference:'x'}]),/not found/);});
+test('source enrichment preserves identity and deduplicates evidence', (t) => {
+  const { store } = fixture(t);
+  const m = store.remember(input()).memory;
+  const enriched = store.addSources(m.id, 'alpha', [{ reference: 'session:two' }]);
+  assert.equal(enriched.id, m.id);
+  assert.equal(enriched.sources.length, 2);
+  assert.equal(store.addSources(m.id, 'alpha', [{ reference: 'session:two' }]).sources.length, 2);
+  assert.throws(() => store.addSources(m.id, 'beta', [{ reference: 'x' }]), /not found/);
+});
 
-test('confirmation promotes an existing hypothesis with explicit evidence',t=>{const {store}=fixture(t);const m=store.remember(input({status:'hypothesis'})).memory;const confirmed=store.confirm(m.id,'alpha',[{reference:'test:verified'}]);assert.equal(confirmed.status,'confirmed');assert.equal(confirmed.id,m.id);assert.equal(store.search({project:'alpha',query:'SQLite'}).results.length,1);assert.throws(()=>store.confirm(m.id,'alpha',[{reference:'x'}]),/Only an active hypothesis/);});
+test('confirmation promotes an existing hypothesis with explicit evidence', (t) => {
+  const { store } = fixture(t);
+  const m = store.remember(input({ status: 'hypothesis' })).memory;
+  const confirmed = store.confirm(m.id, 'alpha', [{ reference: 'test:verified' }]);
+  assert.equal(confirmed.status, 'confirmed');
+  assert.equal(confirmed.id, m.id);
+  assert.equal(store.search({ project: 'alpha', query: 'SQLite' }).results.length, 1);
+  assert.throws(
+    () => store.confirm(m.id, 'alpha', [{ reference: 'x' }]),
+    /Only an active hypothesis/,
+  );
+});
 
-test('project browsing supports stable pagination and lifecycle filters',t=>{const {store}=fixture(t);store.remember(input());store.remember(input({content:'Redis caches responses.',status:'hypothesis'}));const page=store.list({project:'alpha',limit:1});assert.equal(page.total,2);assert.equal(page.nextOffset,1);assert.notEqual(store.list({project:'alpha',limit:1,offset:1}).memories[0]?.id,page.memories[0]?.id);assert.equal(store.list({project:'alpha',status:'hypothesis'}).total,1);assert.equal(store.list({project:'beta'}).total,0);});
+test('project browsing supports stable pagination and lifecycle filters', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  store.remember(input({ content: 'Redis caches responses.', status: 'hypothesis' }));
+  const page = store.list({ project: 'alpha', limit: 1 });
+  assert.equal(page.total, 2);
+  assert.equal(page.nextOffset, 1);
+  assert.notEqual(
+    store.list({ project: 'alpha', limit: 1, offset: 1 }).memories[0]?.id,
+    page.memories[0]?.id,
+  );
+  assert.equal(store.list({ project: 'alpha', status: 'hypothesis' }).total, 1);
+  assert.equal(store.list({ project: 'beta' }).total, 0);
+});
 
-test('statistics summarize only the selected project',t=>{const {store}=fixture(t);store.remember(input({tags:['offline']}));store.remember(input({project:'beta',content:'Private beta fact.'}));const stats=store.stats('alpha');assert.equal(stats.total,1);assert.equal(stats.byStatus.confirmed,1);assert.deepEqual(stats.tags,['offline']);});
+test('statistics summarize only the selected project', (t) => {
+  const { store } = fixture(t);
+  store.remember(input({ tags: ['offline'] }));
+  store.remember(input({ project: 'beta', content: 'Private beta fact.' }));
+  const stats = store.stats('alpha');
+  assert.equal(stats.total, 1);
+  assert.equal(stats.byStatus.confirmed, 1);
+  assert.deepEqual(stats.tags, ['offline']);
+});
 
-test('decision history traverses replacement chains within one project',t=>{const {store}=fixture(t);const old=store.remember(input()).memory;const next=store.supersede(old.id,input({content:'Postgres serves concurrent writes.'})).memory;assert.equal(store.history(next.id,'alpha').memories.length,2);store.forget(old.id,'alpha');assert.deepEqual(store.history(next.id,'alpha').missingIds,[old.id]);assert.throws(()=>store.history(next.id,'beta'),/not found/);});
+test('decision history traverses replacement chains within one project', (t) => {
+  const { store } = fixture(t);
+  const old = store.remember(input()).memory;
+  const next = store.supersede(
+    old.id,
+    input({ content: 'Postgres serves concurrent writes.' }),
+  ).memory;
+  assert.equal(store.history(next.id, 'alpha').memories.length, 2);
+  store.forget(old.id, 'alpha');
+  assert.deepEqual(store.history(next.id, 'alpha').missingIds, [old.id]);
+  assert.throws(() => store.history(next.id, 'beta'), /not found/);
+});
 
-test('search can isolate a memory kind',t=>{const {store}=fixture(t);store.remember(input());store.remember(input({kind:'lesson',content:'SQLite needs careful backups.'}));assert.equal(store.search({project:'alpha',query:'SQLite',kind:'lesson'}).results.length,1);assert.equal(store.search({project:'alpha',query:'SQLite',kind:'task'}).results.length,0);});
+test('search can isolate a memory kind', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  store.remember(input({ kind: 'lesson', content: 'SQLite needs careful backups.' }));
+  assert.equal(
+    store.search({ project: 'alpha', query: 'SQLite', kind: 'lesson' }).results.length,
+    1,
+  );
+  assert.equal(store.search({ project: 'alpha', query: 'SQLite', kind: 'task' }).results.length, 0);
+});
 
-test('tag filters require all selected tags without widening project scope',t=>{const {store}=fixture(t);store.remember(input({tags:['offline','database']}));store.remember(input({content:'SQLite powers local caches.',tags:['offline']}));assert.equal(store.search({project:'alpha',query:'SQLite',tags:['OFFLINE','database']}).results.length,1);assert.equal(store.search({project:'beta',query:'SQLite',tags:['offline']}).results.length,0);});
+test('tag filters require all selected tags without widening project scope', (t) => {
+  const { store } = fixture(t);
+  store.remember(input({ tags: ['offline', 'database'] }));
+  store.remember(input({ content: 'SQLite powers local caches.', tags: ['offline'] }));
+  assert.equal(
+    store.search({ project: 'alpha', query: 'SQLite', tags: ['OFFLINE', 'database'] }).results
+      .length,
+    1,
+  );
+  assert.equal(
+    store.search({ project: 'beta', query: 'SQLite', tags: ['offline'] }).results.length,
+    0,
+  );
+});
 
-test('all-keyword mode narrows multi-term recall',t=>{const {store}=fixture(t);store.remember(input());store.remember(input({title:'Network',content:'SQLite serves online clients.'}));assert.equal(store.search({project:'alpha',query:'SQLite offline',mode:'all'}).results.length,1);assert.equal(store.search({project:'alpha',query:'SQLite offline'}).results.length,2);});
+test('all-keyword mode narrows multi-term recall', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  store.remember(input({ title: 'Network', content: 'SQLite serves online clients.' }));
+  assert.equal(
+    store.search({ project: 'alpha', query: 'SQLite offline', mode: 'all' }).results.length,
+    1,
+  );
+  assert.equal(store.search({ project: 'alpha', query: 'SQLite offline' }).results.length, 2);
+});
 
-test('prefix matching is explicit and treats query syntax as data',t=>{const {store}=fixture(t);store.remember(input());assert.equal(store.search({project:'alpha',query:'offl'}).results.length,0);assert.equal(store.search({project:'alpha',query:'offl',prefix:true}).results.length,1);});
+test('prefix matching is explicit and treats query syntax as data', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  assert.equal(store.search({ project: 'alpha', query: 'offl' }).results.length, 0);
+  assert.equal(store.search({ project: 'alpha', query: 'offl', prefix: true }).results.length, 1);
+});
 
-test('retrieval budgets preserve complete emoji characters',t=>{const {store}=fixture(t);store.remember(input({content:'x'.repeat(199)+'😀 SQLite'}));const result=store.search({project:'alpha',query:'xxxxxxxx',prefix:true,maxChars:200});assert.equal(result.results[0]?.content.length,199);assert.ok(!/[\uD800-\uDBFF]$/.test(result.results[0]!.content));});
+test('retrieval budgets preserve complete emoji characters', (t) => {
+  const { store } = fixture(t);
+  store.remember(input({ content: 'x'.repeat(199) + '😀 SQLite' }));
+  const result = store.search({ project: 'alpha', query: 'xxxxxxxx', prefix: true, maxChars: 200 });
+  assert.equal(result.results[0]?.content.length, 199);
+  assert.ok(!/[\uD800-\uDBFF]$/.test(result.results[0]!.content));
+});
 
-test('long-note excerpts include the matching passage',t=>{const {store}=fixture(t);store.remember(input({title:'Architecture',content:'Background. '.repeat(100)+'SQLite fixes offline persistence.'}));const found=store.search({project:'alpha',query:'SQLite',maxChars:200}).results[0]!;assert.match(found.content,/SQLite/);assert.equal(found.truncated,true);});
+test('long-note excerpts include the matching passage', (t) => {
+  const { store } = fixture(t);
+  store.remember(
+    input({
+      title: 'Architecture',
+      content: 'Background. '.repeat(100) + 'SQLite fixes offline persistence.',
+    }),
+  );
+  const found = store.search({ project: 'alpha', query: 'SQLite', maxChars: 200 }).results[0]!;
+  assert.match(found.content, /SQLite/);
+  assert.equal(found.truncated, true);
+});
 
-test('recall explains which query words matched',t=>{const {store}=fixture(t);store.remember(input());assert.deepEqual(store.search({project:'alpha',query:'SQLite unrelated'}).results[0]?.matchedTerms,['SQLite']);});
+test('recall explains which query words matched', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  assert.deepEqual(
+    store.search({ project: 'alpha', query: 'SQLite unrelated' }).results[0]?.matchedTerms,
+    ['SQLite'],
+  );
+});
 
-test('oversized Unicode metadata cannot poison the vault',t=>{const {store}=fixture(t);assert.throws(()=>store.remember(input({sources:Array.from({length:20},(_,i)=>({reference:String(i)+'界'.repeat(1900),excerpt:'界'.repeat(3900)}))})),/256 KB/);assert.equal(store.reindex().indexed,0);});
+test('oversized Unicode metadata cannot poison the vault', (t) => {
+  const { store } = fixture(t);
+  assert.throws(
+    () =>
+      store.remember(
+        input({
+          sources: Array.from({ length: 20 }, (_, i) => ({
+            reference: String(i) + '界'.repeat(1900),
+            excerpt: '界'.repeat(3900),
+          })),
+        }),
+      ),
+    /256 KB/,
+  );
+  assert.equal(store.reindex().indexed, 0);
+});
 
-test('source references and excerpts participate in recall',t=>{const {store}=fixture(t);store.remember(input({sources:[{reference:'meeting:architecture-review',excerpt:'Benchmark confirmed WAL throughput.'}]}));const result=store.search({project:'alpha',query:'throughput'}).results[0]!;assert.ok(result);assert.deepEqual(result.matchedTerms,['throughput']);});
+test('source references and excerpts participate in recall', (t) => {
+  const { store } = fixture(t);
+  store.remember(
+    input({
+      sources: [
+        {
+          reference: 'meeting:architecture-review',
+          excerpt: 'Benchmark confirmed WAL throughput.',
+        },
+      ],
+    }),
+  );
+  const result = store.search({ project: 'alpha', query: 'throughput' }).results[0]!;
+  assert.ok(result);
+  assert.deepEqual(result.matchedTerms, ['throughput']);
+});
 
-test('unchanged reconciliation leaves SQLite content unchanged',t=>{const {store,vault}=fixture(t);store.remember(input());const file=path.join(vault,'.recallvault','index.sqlite');const before=readFileSync(file);store.search({project:'alpha',query:'SQLite'});assert.deepEqual(readFileSync(file),before);});
+test('unchanged reconciliation leaves SQLite content unchanged', (t) => {
+  const { store, vault } = fixture(t);
+  store.remember(input());
+  const file = path.join(vault, '.recallvault', 'index.sqlite');
+  const before = readFileSync(file);
+  store.search({ project: 'alpha', query: 'SQLite' });
+  assert.deepEqual(readFileSync(file), before);
+});
 
-test('context packs include note paths and sources without unrelated projects',t=>{const {store}=fixture(t);const m=store.remember(input()).memory;store.remember(input({project:'beta',content:'SQLite confidential beta context.'}));const context=store.context({project:'alpha',query:'SQLite'});assert.match(context.markdown,/session:one/);assert.match(context.markdown,/reference data/);assert.ok(!context.markdown.includes('confidential'));assert.deepEqual(context.memoryIds,[m.id]);});
+test('context packs include note paths and sources without unrelated projects', (t) => {
+  const { store } = fixture(t);
+  const m = store.remember(input()).memory;
+  store.remember(input({ project: 'beta', content: 'SQLite confidential beta context.' }));
+  const context = store.context({ project: 'alpha', query: 'SQLite' });
+  assert.match(context.markdown, /session:one/);
+  assert.match(context.markdown, /reference data/);
+  assert.ok(!context.markdown.includes('confidential'));
+  assert.deepEqual(context.memoryIds, [m.id]);
+});
 
-test('batch ingestion validates every item before mutation and defaults to preview',t=>{const {store}=fixture(t);const preview=store.rememberBatch([input(),input()]);assert.equal(preview.memories.length,1);assert.equal(preview.duplicateIds.length,1);assert.equal(store.stats('alpha').total,0);assert.throws(()=>store.rememberBatch([input(),{bad:true}],false));assert.equal(store.stats('alpha').total,0);const saved=store.rememberBatch([input(),input({content:'Redis caches values.'})],false);assert.equal(saved.memories.length,2);assert.equal(store.stats('alpha').total,2);});
+test('batch ingestion validates every item before mutation and defaults to preview', (t) => {
+  const { store } = fixture(t);
+  const preview = store.rememberBatch([input(), input()]);
+  assert.equal(preview.memories.length, 1);
+  assert.equal(preview.duplicateIds.length, 1);
+  assert.equal(store.stats('alpha').total, 0);
+  assert.throws(() => store.rememberBatch([input(), { bad: true }], false));
+  assert.equal(store.stats('alpha').total, 0);
+  const saved = store.rememberBatch([input(), input({ content: 'Redis caches values.' })], false);
+  assert.equal(saved.memories.length, 2);
+  assert.equal(store.stats('alpha').total, 2);
+});
 
-test('portable exports exclude retired decisions and preserve hypotheses',t=>{const {store}=fixture(t);const old=store.remember(input()).memory;store.supersede(old.id,input({content:'Use Postgres.'}));store.remember(input({content:'Maybe Redis.',status:'hypothesis'}));const exported=store.exportProject('alpha');assert.equal(exported.exported,2);const rows=exported.jsonl.trim().split('\n').map(line=>JSON.parse(line));assert.ok(rows.some(row=>row.status==='hypothesis'));assert.ok(rows.every(row=>!('id' in row)));assert.ok(!exported.jsonl.includes('supports offline'));});
+test('portable exports exclude retired decisions and preserve hypotheses', (t) => {
+  const { store } = fixture(t);
+  const old = store.remember(input()).memory;
+  store.supersede(old.id, input({ content: 'Use Postgres.' }));
+  store.remember(input({ content: 'Maybe Redis.', status: 'hypothesis' }));
+  const exported = store.exportProject('alpha');
+  assert.equal(exported.exported, 2);
+  const rows = exported.jsonl
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  assert.ok(rows.some((row) => row.status === 'hypothesis'));
+  assert.ok(rows.every((row) => !('id' in row)));
+  assert.ok(!exported.jsonl.includes('supports offline'));
+});
 
-test('JSONL validation reports source lines and supports portable round trips',async t=>{const {parseJsonl}=await import('../src/exchange.js');const {store}=fixture(t);store.remember(input());const exported=store.exportProject('alpha');const imported=parseJsonl(exported.jsonl);assert.equal(store.rememberBatch(imported,false).duplicateIds.length,1);assert.throws(()=>parseJsonl(exported.jsonl+'not json'),/line 2/);assert.throws(()=>parseJsonl('   '),/No memory/);});
+test('JSONL validation reports source lines and supports portable round trips', async (t) => {
+  const { parseJsonl } = await import('../src/exchange.js');
+  const { store } = fixture(t);
+  store.remember(input());
+  const exported = store.exportProject('alpha');
+  const imported = parseJsonl(exported.jsonl);
+  assert.equal(store.rememberBatch(imported, false).duplicateIds.length, 1);
+  assert.throws(() => parseJsonl(exported.jsonl + 'not json'), /line 2/);
+  assert.throws(() => parseJsonl('   '), /No memory/);
+});
 
-test('capture extracts only marked statements with line provenance as hypotheses',async()=>{const {captureCandidates}=await import('../src/capture.js');const capture=captureCandidates({project:'alpha',reference:'transcript:planning',text:'Small talk\n[decisão] Usar SQLite offline.\n- [task] Measure startup.'});assert.equal(capture.candidates.length,2);assert.equal(capture.candidates[0]?.status,'hypothesis');assert.equal(capture.candidates[0]?.sources[0]?.reference,'transcript:planning#L2');assert.equal(capture.ignoredLines,1);});
+test('capture extracts only marked statements with line provenance as hypotheses', async () => {
+  const { captureCandidates } = await import('../src/capture.js');
+  const capture = captureCandidates({
+    project: 'alpha',
+    reference: 'transcript:planning',
+    text: 'Small talk\n[decisão] Usar SQLite offline.\n- [task] Measure startup.',
+  });
+  assert.equal(capture.candidates.length, 2);
+  assert.equal(capture.candidates[0]?.status, 'hypothesis');
+  assert.equal(capture.candidates[0]?.sources[0]?.reference, 'transcript:planning#L2');
+  assert.equal(capture.ignoredLines, 1);
+});
 
-test('project digests include confirmed knowledge and exclude hypotheses',t=>{const {store}=fixture(t);store.remember(input());store.remember(input({content:'Unverified secret plan.',status:'hypothesis'}));const digest=store.digest('alpha');assert.equal(digest.memories,1);assert.match(digest.markdown,/session:one/);assert.ok(!digest.markdown.includes('Unverified'));});
+test('project digests include confirmed knowledge and exclude hypotheses', (t) => {
+  const { store } = fixture(t);
+  store.remember(input());
+  store.remember(input({ content: 'Unverified secret plan.', status: 'hypothesis' }));
+  const digest = store.digest('alpha');
+  assert.equal(digest.memories, 1);
+  assert.match(digest.markdown, /session:one/);
+  assert.ok(!digest.markdown.includes('Unverified'));
+});
 
-test('doctor reports malformed notes without serving stale indexed data',t=>{const {store,vault}=fixture(t);const m=store.remember(input()).memory;writeFileSync(path.join(vault,m.path),'broken');const report=store.doctor();assert.equal(report.healthy,false);assert.equal(report.issues[0]?.path,m.path);assert.match(report.issues[0]!.message,/frontmatter/);});
+test('doctor reports malformed notes without serving stale indexed data', (t) => {
+  const { store, vault } = fixture(t);
+  const m = store.remember(input()).memory;
+  writeFileSync(path.join(vault, m.path), 'broken');
+  const report = store.doctor();
+  assert.equal(report.healthy, false);
+  assert.equal(report.issues[0]?.path, m.path);
+  assert.match(report.issues[0]!.message, /frontmatter/);
+});
 
-test('lock recovery refuses live or unverifiable owners',async t=>{const {inspectLock,recoverLock}=await import('../src/locks.js');const {vault}=fixture(t);assert.equal(inspectLock(vault).locked,false);const file=path.join(vault,'.recallvault','write.lock');writeFileSync(file,JSON.stringify({pid:process.pid}));assert.equal(inspectLock(vault).alive,true);assert.throws(()=>recoverLock(vault,true),/live or cannot be verified/);writeFileSync(file,'not json');assert.throws(()=>recoverLock(vault,true),/cannot be verified/);rmSync(file);});
+test('lock recovery refuses live or unverifiable owners', async (t) => {
+  const { inspectLock, recoverLock } = await import('../src/locks.js');
+  const { vault } = fixture(t);
+  assert.equal(inspectLock(vault).locked, false);
+  const file = path.join(vault, '.recallvault', 'write.lock');
+  writeFileSync(file, JSON.stringify({ pid: process.pid }));
+  assert.equal(inspectLock(vault).alive, true);
+  assert.throws(() => recoverLock(vault, true), /live or cannot be verified/);
+  writeFileSync(file, 'not json');
+  assert.throws(() => recoverLock(vault, true), /cannot be verified/);
+  rmSync(file);
+});
 
-test('batch write failure rolls back newly created notes',t=>{const {store}=fixture(t);const huge=input({content:'Oversized statement.',sources:Array.from({length:20},(_,i)=>({reference:String(i)+'界'.repeat(1900),excerpt:'界'.repeat(3900)}))});assert.throws(()=>store.rememberBatch([input(),huge],false),/256 KB/);assert.equal(store.stats('alpha').total,0);});
-test('cache migration preserves source-backed recall',async t=>{const {DatabaseSync}=await import('node:sqlite');const {store,vault}=fixture(t);const m=store.remember(input({sources:[{reference:'review:unique-evidence'}]})).memory;store.close();const db=new DatabaseSync(path.join(vault,'.recallvault','index.sqlite'));db.exec("DROP TABLE memory_fts; CREATE VIRTUAL TABLE memory_fts USING fts5(id UNINDEXED,title,content,tags);");db.close();const next=new MemoryStore(vault);try{assert.equal(next.search({project:'alpha',query:'evidence'}).results[0]?.id,m.id);}finally{next.close();}});
+test('batch write failure rolls back newly created notes', (t) => {
+  const { store } = fixture(t);
+  const huge = input({
+    content: 'Oversized statement.',
+    sources: Array.from({ length: 20 }, (_, i) => ({
+      reference: String(i) + '界'.repeat(1900),
+      excerpt: '界'.repeat(3900),
+    })),
+  });
+  assert.throws(() => store.rememberBatch([input(), huge], false), /256 KB/);
+  assert.equal(store.stats('alpha').total, 0);
+});
+test('cache migration preserves source-backed recall', async (t) => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { store, vault } = fixture(t);
+  const m = store.remember(input({ sources: [{ reference: 'review:unique-evidence' }] })).memory;
+  store.close();
+  const db = new DatabaseSync(path.join(vault, '.recallvault', 'index.sqlite'));
+  db.exec(
+    'DROP TABLE memory_fts; CREATE VIRTUAL TABLE memory_fts USING fts5(id UNINDEXED,title,content,tags);',
+  );
+  db.close();
+  const next = new MemoryStore(vault);
+  try {
+    assert.equal(next.search({ project: 'alpha', query: 'evidence' }).results[0]?.id, m.id);
+  } finally {
+    next.close();
+  }
+});
 
-test('captured titles preserve Unicode at display boundaries',async()=>{const {captureCandidates}=await import('../src/capture.js');const candidate=captureCandidates({project:'alpha',reference:'session:unicode',text:'[fact] '+'a'.repeat(159)+'😀 tested.'}).candidates[0]!;assert.equal(candidate.title.length,159);assert.ok(!/[\uD800-\uDBFF]$/.test(candidate.title));});
+test('captured titles preserve Unicode at display boundaries', async () => {
+  const { captureCandidates } = await import('../src/capture.js');
+  const candidate = captureCandidates({
+    project: 'alpha',
+    reference: 'session:unicode',
+    text: '[fact] ' + 'a'.repeat(159) + '😀 tested.',
+  }).candidates[0]!;
+  assert.equal(candidate.title.length, 159);
+  assert.ok(!/[\uD800-\uDBFF]$/.test(candidate.title));
+});
