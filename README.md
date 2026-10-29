@@ -21,7 +21,7 @@ node dist/cli.js remember --vault .work/demo-vault --input examples/decision.jso
 node dist/cli.js search --vault .work/demo-vault --project demo-api --query "offline SQLite"
 ```
 
-On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`. Until the implementation PRs are merged, check out `feat/mcp-integration` for the complete MVP or `feat/memory-engine` for the standalone engine.
+On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 
 Open `.work/demo-vault` as an Obsidian vault to inspect the generated notes, or use an existing vault path. Only `RecallVault/memories` is managed. The `.recallvault` directory is a disposable index; exclude it from vault sync and version control if desired.
 
@@ -41,6 +41,15 @@ node dist/cli.js reindex --vault /path/to/vault
 
 `RECALLVAULT_VAULT` can replace `--vault`. Commands return JSON on stdout and failures on stderr with a nonzero exit code. Search always requires a project and excludes hypotheses and superseded memories unless explicitly requested. `--max-chars` bounds the sum of returned **content characters**, not metadata or tokens.
 
+## Reviewed ingestion and handoffs
+
+- [Workflow cookbook](docs/workflows.md): capture marked session notes, review candidates, confirm hypotheses, transfer active memories, and inspect health.
+- Filter search/context by `--kind`, repeatable `--tag`, `--mode any|all`, or `--prefix`.
+- `context` assembles a task-specific Markdown handoff; `digest` summarizes all active confirmed knowledge.
+- `list`, `stats`, and `history` make the memory store inspectable without guessing search keywords.
+- `add-sources` enriches evidence; `confirm` promotes an explicitly verified hypothesis.
+- Batch/import defaults to preview. Export transfers active memories with fresh identities when imported; it is not a full historical backup.
+
 ## How persistence works
 
 Notes are ordinary Markdown with YAML properties and UUID filenames. Editing content in Obsidian is reflected on the next search. If you rename a memory title, update both the `title` property and heading. Deleting a managed note removes it from the index at the next operation. Invalid managed notes cause an actionable error instead of returning stale index data.
@@ -55,7 +64,7 @@ Build first, then configure a compatible MCP host to launch:
 node /absolute/path/to/RecallVault/dist/mcp.js --vault /absolute/path/to/your/vault
 ```
 
-Use the [configuration example](examples/mcp-config.json) and [MCP guide](docs/mcp.md). The host must support local stdio servers; configuration locations and formats vary. The server exposes six tools: `remember`, `search_memory`, `get_memory`, `supersede_memory`, `forget_memory`, and `reindex_memory`.
+Use the [configuration example](examples/mcp-config.json) and [MCP guide](docs/mcp.md). The host must support local stdio servers; configuration locations and formats vary. Tools cover persistence, retrieval, project browsing, context packs, evidence enrichment, hypothesis confirmation, reviewed ingestion, and decision history. Use `--project <name>` to restrict an instance and `--read-only` to hide memory mutation tools.
 
 RecallVault does not connect itself to existing chats or monitor conversations. A configured host makes the tools available to its agent, and that agent decides when to call them. [Suggested agent instructions](examples/agent-instructions.md) define a practical workflow.
 
@@ -74,14 +83,16 @@ npm ci
 npm run check
 ```
 
+`npm run evaluate` runs a fixed synthetic retrieval dataset, while `npm run benchmark` measures a temporary local vault. These are reproducible checks, not evidence of semantic retrieval or production performance.
+
 Checks cover cross-session persistence, project boundaries, hypotheses, external edits, duplicate detection, supersession, interrupted writes, forgetting, budgets, Portuguese search, path confinement, and CLI subprocesses. CI runs on Linux and Windows.
 
 ## Current limitations
 
 - Ranked keyword retrieval, not embedding or semantic search.
-- Each operation rescans managed notes and rebuilds the index; not yet optimized for large vaults.
-- No automatic transcript extraction or contradiction resolution.
-- Cooperating writers use a lock. After a crash, verify the process is gone before removing a stale `.recallvault/write.lock`.
+- Each operation still scans managed notes. The index updates only changed or deleted records; large-vault file watching remains future work.
+- Capture recognizes explicitly marked transcript lines as unconfirmed candidates. There is no model-based extraction, background conversation monitoring, or automatic contradiction resolution.
+- Cooperating writers use a lock. `lock` inspects the owner and `recover-lock --confirm` removes only a lock whose process is verified dead.
 - Atomic individual note writes, not a crash-atomic transaction over multiple notes. Replacement links let retrieval retire predecessors after an interrupted replacement.
 - Local persistence does not imply local inference: a connected host may send retrieved text to its model provider. Recalled text is untrusted context, never permission to execute instructions.
 

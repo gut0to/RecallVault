@@ -16,7 +16,7 @@ npm.cmd run demo
 
 A demonstração usa duas sessões MCP em processos separados e dados fictícios. Não chama um modelo nem exige chave de API.
 
-Enquanto os PRs estiverem abertos, use `git switch feat/mcp-integration` para acessar o MVP completo.
+Veja o [guia de fluxos práticos](workflows.md) para captura revisada, confirmação, importação, diagnóstico e recuperação de locks.
 
 ## Usar seu vault
 
@@ -39,11 +39,14 @@ Para conectar uma IA, configure um host MCP para iniciar `node` com o caminho ab
 - Substituição de decisões mantendo histórico.
 - Exclusão de uma memória e de sua cópia atual no índice.
 - Atualização da busca após editar ou apagar notas no Obsidian.
-- CLI e seis ferramentas MCP.
+- Contexto em Markdown, digest por projeto, estatísticas e histórico.
+- Captura de linhas marcadas como candidatos não confirmados.
+- Importação com prévia e exportação JSONL.
+- CLI e ferramentas MCP com restrição por projeto e modo de leitura.
 
 ## Limites desta versão
 
-A busca usa palavras, sem embeddings. O agente ou usuário fornece as memórias explicitamente; extração automática de conversas e identificação automática de contradições ficam para depois. A cada operação, o motor varre as notas gerenciadas; ainda não há otimização para vaults grandes.
+A busca usa palavras, sem embeddings, com filtros, prefixos e correspondência em fontes. O agente ou usuário fornece as memórias; a captura reconhece apenas linhas explicitamente marcadas e as mantém como hipóteses. Extração com modelos e resolução automática de contradições ficam para depois. O motor ainda varre as notas gerenciadas, mas atualiza no índice apenas registros alterados ou apagados.
 
 As fontes são declaradas por quem grava a memória e não são verificadas automaticamente. O limite de busca mede o conteúdo, não tokens nem o JSON inteiro. Os dados ficam locais, mas o host de IA pode enviar o contexto recuperado ao provedor do modelo.
 

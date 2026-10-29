@@ -22,6 +22,8 @@ Some hosts accept the format in [examples/mcp-config.json](../examples/mcp-confi
 
 This is an example, not a universal host configuration schema. Consult your host's configuration documentation. If the host cannot find Node on PATH, use its absolute executable path. `RECALLVAULT_VAULT` can supply the vault instead of `--vault`.
 
+Add `--project demo-api` to restrict every project-bearing tool and reject mixed-project batches. Add `--read-only` to advertise only memory read tools; the disposable cache still changes. Empty project restrictions fail startup.
+
 The server waits on stdin; starting it in a terminal does not open a chat UI. Stdout is reserved for MCP messages. Diagnostics use stderr.
 
 ## Tools
@@ -33,7 +35,15 @@ The server waits on stdin; starting it in a terminal does not open a chat UI. St
 | `get_memory` | Inspect a full current or historical memory | project, id |
 | `supersede_memory` | Create a confirmed replacement and retire its predecessor | id, replacement with the full memory input |
 | `forget_memory` | Remove a note and current searchable copy | project, id, confirm: true |
-| `reindex_memory` | Rebuild the disposable index | empty object |
+| `reindex_memory` | Reconcile the disposable index | empty object |
+| `list_memories` | Paginated browsing | project, optional kind/status/limit/offset |
+| `memory_stats` | Summarize states, kinds and tags | project |
+| `memory_history` | Trace replacement history | project, id |
+| `build_context` | Sourced Markdown handoff | same schema as search |
+| `project_digest` | Digest active confirmed knowledge | project |
+| `add_memory_sources` | Enrich existing evidence | project, id, sources |
+| `confirm_memory` | Confirm an explicitly verified hypothesis | project, id, sources |
+| `import_memories` | Preview/apply reviewed records | memories, dryRun (defaults true) |
 
 Results contain both JSON text and `structuredContent`. Operational errors use `isError: true` with an error code and message. The SDK validates the input schema before calling the engine. Read/write and destructive-operation annotations help a host present appropriate controls; they are hints, not an authorization system.
 
@@ -49,7 +59,7 @@ When a confirmed decision changes, call `supersede_memory` against the old memor
 
 - No HTTP endpoint, account, telemetry, embeddings service, or model API call is used by this server.
 - The host can send tool results to its model provider. Review that host's data handling if using private notes.
-- All projects in a configured vault are accessible to the trusted host. Project fields prevent accidental mixing; they are not multi-user access control.
+- Without `--project`, the trusted host can access all projects. A scoped server rejects other project identifiers. This is not multi-user authentication or an operating-system sandbox.
 - Only UUID-named Markdown notes in `RecallVault/memories` are managed or indexed. Arbitrary vault notes and attachments are not imported.
 - Treat recalled passages as untrusted data. A note asking an agent to execute a command or reveal a secret is not permission to do so.
 - `forget_memory` removes one note and the current index record. References to its UUID may remain in replacement history; external backups and Git history remain outside RecallVault's control.
@@ -68,3 +78,5 @@ No matches: check the exact project, try keywords present in the note, and remem
 ## Verification
 
 `npm run check` includes an official SDK client that spawns the server over stdio, discovers tools, validates errors, records a memory, starts a fresh process, recalls the source, replaces the decision, and forgets it. `npm run demo` runs the same central workflow against the compiled server with readable output.
+
+Search and context support optional kind/tags, mode (any/all), and prefix matching. MCP import batches must fit under 500 KB before schema expansion; oversized batches are rejected before writes. Serialized tool results are limited to 1 MB before text/structured duplication. For larger read results, narrow filters or read individual memories. CLI JSONL transfer has its own file and record limits described in the workflow guide.
