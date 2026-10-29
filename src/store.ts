@@ -290,6 +290,7 @@ export class MemoryStore {
         const content = excerpt(m.content, words, remaining); remaining -= content.length;
         results.push({ id: m.id, title: m.title, project: m.project, kind: m.kind, status: m.status,
           path: m.path, sources: m.sources, content, truncated: content.length < m.content.length,
+          matchedTerms: words.filter(word => [m.title, m.content, ...m.tags].join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().includes(word.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())),
           reason: 'Ranked keyword match in title, content, or tags; filtered to the requested project and statuses.' });
       }
       return { results, contentChars: options.maxChars - remaining, budget: options.maxChars };

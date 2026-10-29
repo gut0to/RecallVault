@@ -57,7 +57,7 @@ export type ListInput = z.input<typeof listSchema>;
 export type SearchInput = z.input<typeof searchSchema>;
 export type SearchResult = {
   id: string; title: string; project: string; kind: Metadata['kind']; status: Metadata['status'];
-  path: string; sources: Metadata['sources']; content: string; truncated: boolean; reason: string;
+  path: string; sources: Metadata['sources']; content: string; truncated: boolean; matchedTerms: string[]; reason: string;
 };
 
 export class VaultError extends Error {

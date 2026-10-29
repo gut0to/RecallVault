@@ -43,3 +43,5 @@ test('prefix matching is explicit and treats query syntax as data',t=>{const {st
 test('retrieval budgets preserve complete emoji characters',t=>{const {store}=fixture(t);store.remember(input({content:'x'.repeat(199)+'😀 SQLite'}));const result=store.search({project:'alpha',query:'xxxxxxxx',prefix:true,maxChars:200});assert.equal(result.results[0]?.content.length,199);assert.ok(!/[\uD800-\uDBFF]$/.test(result.results[0]!.content));});
 
 test('long-note excerpts include the matching passage',t=>{const {store}=fixture(t);store.remember(input({title:'Architecture',content:'Background. '.repeat(100)+'SQLite fixes offline persistence.'}));const found=store.search({project:'alpha',query:'SQLite',maxChars:200}).results[0]!;assert.match(found.content,/SQLite/);assert.equal(found.truncated,true);});
+
+test('recall explains which query words matched',t=>{const {store}=fixture(t);store.remember(input());assert.deepEqual(store.search({project:'alpha',query:'SQLite unrelated'}).results[0]?.matchedTerms,['SQLite']);});
