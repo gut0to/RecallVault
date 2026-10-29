@@ -39,3 +39,5 @@ test('tag filters require all selected tags without widening project scope',t=>{
 test('all-keyword mode narrows multi-term recall',t=>{const {store}=fixture(t);store.remember(input());store.remember(input({title:'Network',content:'SQLite serves online clients.'}));assert.equal(store.search({project:'alpha',query:'SQLite offline',mode:'all'}).results.length,1);assert.equal(store.search({project:'alpha',query:'SQLite offline'}).results.length,2);});
 
 test('prefix matching is explicit and treats query syntax as data',t=>{const {store}=fixture(t);store.remember(input());assert.equal(store.search({project:'alpha',query:'offl'}).results.length,0);assert.equal(store.search({project:'alpha',query:'offl',prefix:true}).results.length,1);});
+
+test('retrieval budgets preserve complete emoji characters',t=>{const {store}=fixture(t);store.remember(input({content:'x'.repeat(199)+'😀 SQLite'}));const result=store.search({project:'alpha',query:'SQLite',maxChars:200});assert.equal(result.results[0]?.content.length,199);assert.ok(!/[\uD800-\uDBFF]$/.test(result.results[0]!.content));});
