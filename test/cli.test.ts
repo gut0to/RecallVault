@@ -23,3 +23,11 @@ test('CLI gives actionable errors and help', () => {
   assert.match(run('--help').stdout, /persistent project memory/);
   const invalid = run('unknown'); assert.equal(invalid.status, 1); assert.match(invalid.stderr, /INVALID_COMMAND/);
 });
+
+test('CLI exposes filtered retrieval and project handoffs',t=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-cli-context-'));t.after(()=>rmSync(vault,{recursive:true,force:true}));
+ assert.equal(run('remember','--vault',vault,'--input','examples/decision.json').status,0);
+ assert.equal(JSON.parse(run('stats','--vault',vault,'--project','demo-api').stdout).total,1);
+ assert.equal(JSON.parse(run('list','--vault',vault,'--project','demo-api','--status','confirmed').stdout).total,1);
+ const result=run('context','--vault',vault,'--project','demo-api','--query','SQLite','--kind','decision');assert.equal(result.status,0,result.stderr);assert.match(JSON.parse(result.stdout).markdown,/session:demo-planning/);
+});
