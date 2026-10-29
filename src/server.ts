@@ -1,7 +1,7 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { MemoryStore } from './store.js';
-import { idSchema, memoryInputSchema, projectSchema, searchSchema, VaultError } from './schema.js';
+import { idSchema, memoryInputSchema, projectSchema, searchSchema, listSchema, VaultError } from './schema.js';
 
 const instructions = `RecallVault stores persistent project memory in an Obsidian-compatible vault.
 Search the explicit project before answering questions about prior decisions. Quote source references.
@@ -56,6 +56,18 @@ export function createServer(store: MemoryStore): McpServer {
     description: 'Rebuild the disposable local search index from managed Markdown notes. Search also refreshes the index automatically.',
     inputSchema: z.object({}).strict(), annotations: write,
   }, async () => respond(() => store.reindex()));
+
+
+  server.registerTool('list_memories', { description: 'Browse one project with stable pagination and optional kind/status filters.', inputSchema: listSchema, annotations: read },
+    async input => respond(() => store.list(input)));
+  server.registerTool('memory_stats', { description: 'Summarize memory states, kinds, and tags within one project.', inputSchema: z.object({project: projectSchema}).strict(), annotations: read },
+    async ({project}) => respond(() => store.stats(project)));
+  server.registerTool('memory_history', { description: 'Inspect a decision replacement chain and missing history references.', inputSchema: lookup, annotations: read },
+    async ({id,project}) => respond(() => store.history(id,project)));
+  server.registerTool('build_context', { description: 'Assemble a sourced Markdown context pack for the current task using project-scoped retrieval.', inputSchema: searchSchema, annotations: read },
+    async input => respond(() => store.context(input)));
+  server.registerTool('project_digest', { description: 'Read a digest of active confirmed project knowledge with sources.', inputSchema: z.object({project: projectSchema}).strict(), annotations: read },
+    async ({project}) => respond(() => store.digest(project)));
 
   return server;
 }

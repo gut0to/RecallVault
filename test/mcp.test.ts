@@ -36,7 +36,7 @@ test('MCP advertises schemas and read/write annotations', { timeout: 20000 }, as
   try {
     client = await connect(vault);
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 6);
+    assert.equal(tools.length, 11);
     assert.equal(tools.find(t => t.name === 'search_memory')?.annotations?.readOnlyHint, true);
     assert.equal(tools.find(t => t.name === 'forget_memory')?.annotations?.destructiveHint, true);
     assert.ok(tools.find(t => t.name === 'remember')?.inputSchema.required?.includes('sources'));
@@ -85,4 +85,14 @@ test('MCP rejects invalid input before mutation and returns actionable store err
     assert.match(JSON.stringify(wrongProject), /NOT_FOUND/);
     assert.equal(payload(await client.callTool({ name: 'reindex_memory', arguments: {} })).indexed, 1);
   } finally { await client?.close(); rmSync(vault, { recursive: true, force: true }); }
+});
+
+test('MCP browsing and context tools expose sourced project knowledge', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-discovery-'));let client:Client|undefined;
+ try {client=await connect(vault);const saved=payload(await client.callTool({name:'remember',arguments:input}));
+ const context=payload(await client.callTool({name:'build_context',arguments:{project:'demo',query:'SQLite'}}));assert.match(context.markdown,/session:mcp-test/);
+ assert.equal(payload(await client.callTool({name:'memory_stats',arguments:{project:'demo'}})).total,1);
+ assert.equal(payload(await client.callTool({name:'list_memories',arguments:{project:'demo'}})).total,1);
+ assert.equal(payload(await client.callTool({name:'memory_history',arguments:{project:'demo',id:saved.memory.id}})).memories.length,1);
+ } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
 });
