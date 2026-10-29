@@ -6,8 +6,8 @@ import {
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseMemory, serializeMemory } from './markdown.js';
-import { idSchema, memoryInputSchema, metadataSchema, sourceSchema, projectSchema, searchSchema, VaultError,
-  type Memory, type MemoryInput, type SearchInput, type SearchResult } from './schema.js';
+import { idSchema, memoryInputSchema, metadataSchema, sourceSchema, projectSchema, searchSchema, listSchema, VaultError,
+  type Memory, type MemoryInput, type ListInput, type SearchInput, type SearchResult } from './schema.js';
 
 const NOTE_DIR = 'RecallVault/memories';
 const hash = (text: string) => createHash('sha256').update(text.normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim()).digest('hex');
@@ -167,6 +167,17 @@ export class MemoryStore {
       if (sources.length > 20) throw new VaultError('SOURCE_LIMIT', 'A memory supports at most 20 source entries');
       const confirmed: Memory = { ...memory, sources, status: 'confirmed', updated: new Date().toISOString() };
       this.atomicWrite(confirmed); this.reconcile(); return confirmed;
+    });
+  }
+
+  list(input: ListInput): { memories: Memory[]; total: number; nextOffset: number | null } {
+    const options = listSchema.parse(input);
+    return this.withLock(() => {
+      const matching = this.reconcile().filter(m => m.project === options.project && (!options.status || m.status === options.status) && (!options.kind || m.kind === options.kind))
+        .sort((a, b) => b.created.localeCompare(a.created) || a.id.localeCompare(b.id));
+      const memories = matching.slice(options.offset, options.offset + options.limit);
+      const next = options.offset + memories.length;
+      return { memories, total: matching.length, nextOffset: next < matching.length ? next : null };
     });
   }
 

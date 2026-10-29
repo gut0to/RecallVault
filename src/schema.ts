@@ -42,6 +42,14 @@ export const searchSchema = z.object({
   includeHypotheses: z.boolean().default(false),
   includeSuperseded: z.boolean().default(false),
 }).strict();
+export const listSchema = z.object({
+  project: projectSchema,
+  status: z.enum(['confirmed', 'hypothesis', 'superseded']).optional(),
+  kind: z.enum(['decision', 'fact', 'lesson', 'preference', 'task']).optional(),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+}).strict();
+export type ListInput = z.input<typeof listSchema>;
 export type SearchInput = z.input<typeof searchSchema>;
 export type SearchResult = {
   id: string; title: string; project: string; kind: Metadata['kind']; status: Metadata['status'];
