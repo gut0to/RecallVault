@@ -1,0 +1,9 @@
+{
+  "project": "demo-api",
+  "title": "Use SQLite for the offline prototype",
+  "content": "The offline prototype uses SQLite because a single local user needs persistence without a database server. Revisit this decision if concurrent writers become a requirement.",
+  "kind": "decision",
+  "status": "confirmed",
+  "sources": [{ "reference": "session:demo-planning", "excerpt": "We agreed on SQLite for the single-user offline prototype." }],
+  "tags": ["database", "architecture"]
+}
