@@ -6,9 +6,9 @@ import path from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 
-async function connect(vault: string) {
+async function connect(vault: string, args: string[] = []) {
   const transport = new StdioClientTransport({ command: process.execPath,
-    args: ['--import', 'tsx', path.resolve('src/mcp.ts'), '--vault', vault], stderr: 'pipe' });
+    args: ['--import', 'tsx', path.resolve('src/mcp.ts'), '--vault', vault, ...args], stderr: 'pipe' });
   const client = new Client({ name: 'recallvault-test', version: '1.0.0' });
   let stderr = ''; transport.stderr?.on('data', chunk => { stderr += String(chunk); });
   try { await client.connect(transport); }
@@ -103,5 +103,13 @@ test('MCP reviewed ingestion and confirmation preserve evidence', {timeout:20000
  const imported=payload(await client.callTool({name:'import_memories',arguments:{memories:[{...input,status:'hypothesis'}],dryRun:false}}));
  const id=imported.memories[0].id;assert.equal(payload(await client.callTool({name:'confirm_memory',arguments:{id,project:'demo',sources:[{reference:'test:verified'}]}})).status,'confirmed');
  assert.equal(payload(await client.callTool({name:'add_memory_sources',arguments:{id,project:'demo',sources:[{reference:'review:follow-up'}]}})).sources.length,3);
+ } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
+});
+
+test('MCP project scope rejects cross-project reads and mixed batches', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-scope-'));let client:Client|undefined;
+ try {client=await connect(vault,['--project','demo']);assert.equal((await client.callTool({name:'search_memory',arguments:{project:'other',query:'SQLite'}})).isError,true);
+ assert.equal((await client.callTool({name:'import_memories',arguments:{memories:[input,{...input,project:'other'}],dryRun:false}})).isError,true);
+ assert.equal(payload(await client.callTool({name:'memory_stats',arguments:{project:'demo'}})).total,0);
  } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
 });
