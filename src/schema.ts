@@ -24,7 +24,11 @@ export const metadataSchema = memoryInputSchema.omit({ content: true }).extend({
   updated: z.iso.datetime(),
   supersedes: idSchema.optional(),
   superseded_by: idSchema.optional(),
-}).strict();
+}).strict().superRefine((meta, ctx) => {
+  if (Date.parse(meta.updated) < Date.parse(meta.created)) ctx.addIssue({ code: 'custom', message: 'updated cannot precede created' });
+  if (meta.superseded_by && meta.status !== 'superseded') ctx.addIssue({ code: 'custom', message: 'Replacement link requires superseded status' });
+  if (meta.id === meta.supersedes || meta.id === meta.superseded_by) ctx.addIssue({ code: 'custom', message: 'Memory cannot reference itself' });
+});
 
 export type MemoryInput = z.input<typeof memoryInputSchema>;
 export type Metadata = z.infer<typeof metadataSchema>;
