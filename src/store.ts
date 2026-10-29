@@ -58,6 +58,7 @@ export class MemoryStore {
   }
 
   private withLock<T>(action: () => T): T {
+    if (this.closed) throw new VaultError('STORE_CLOSED', 'Memory store is closed');
     this.directory('RecallVault', 'memories'); this.directory('.recallvault');
     const lock = path.join(this.cache, 'write.lock');
     let fd: number;
