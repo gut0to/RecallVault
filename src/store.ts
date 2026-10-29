@@ -29,13 +29,13 @@ export class MemoryStore {
     this.rejectLink(dbPath);
     this.db = new DatabaseSync(dbPath);
     this.db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON;');
-    this.withLock(() => this.db.exec(`
+    try { this.withLock(() => this.db.exec(`
       CREATE TABLE IF NOT EXISTS memories (
         id TEXT PRIMARY KEY, project TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
         status TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL
       );
       CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(id UNINDEXED, title, content, tags, tokenize='unicode61 remove_diacritics 2');
-    `));
+    `)); } catch (error) { this.db.close(); this.closed = true; throw error; }
   }
 
   close(): void { if (!this.closed) { this.db.close(); this.closed = true; } }
