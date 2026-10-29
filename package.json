@@ -1,0 +1,20 @@
+{
+  "name": "recallvault",
+  "version": "0.1.0",
+  "description": "Persistent, inspectable memory for AI agents, backed by your Obsidian vault",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=24.15.0 <25" },
+  "bin": { "recallvault": "dist/cli.js" },
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": { "yaml": "2.9.1", "zod": "4.6.7" },
+  "devDependencies": { "@types/node": "^24.0.0", "tsx": "^4.20.0", "typescript": "^5.9.0" }
+}
