@@ -272,7 +272,7 @@ export class MemoryStore {
     return this.withLock(() => {
       this.reconcile();
       if (!words.length) return { results: [], contentChars: 0, budget: options.maxChars };
-      const match = words.map(word => `"${word}"`).join(' OR ');
+      const match = words.map(word => `"${word}"`).join(options.mode === 'all' ? ' AND ' : ' OR ');
       const rows = this.db.prepare(`
         SELECT m.payload FROM memory_fts f JOIN memories m ON m.id=f.id
         WHERE memory_fts MATCH ? AND m.project=?
