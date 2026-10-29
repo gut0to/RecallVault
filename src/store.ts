@@ -260,6 +260,15 @@ export class MemoryStore {
     });
   }
 
+  exportProject(project: string): { format: string; jsonl: string; exported: number } {
+    project = projectSchema.parse(project);
+    return this.withLock(() => {
+      const memories = this.reconcile().filter(m => m.project === project && m.status !== 'superseded').sort((a,b) => a.id.localeCompare(b.id));
+      const records = memories.map(({ project, title, content, kind, status, sources, tags }) => ({ project, title, content, kind, status, sources, tags }));
+      return { format: 'recallvault-jsonl-v1', jsonl: records.map(m => JSON.stringify(m)).join('\n') + (records.length ? '\n' : ''), exported: records.length };
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
