@@ -278,6 +278,25 @@ export class MemoryStore {
     });
   }
 
+  doctor(): { healthy: boolean; managedFiles: number; issues: { path: string; message: string }[] } {
+    return this.withLock(() => {
+      const issues: { path: string; message: string }[] = []; let managedFiles = 0;
+      for (const entry of readdirSync(this.notes).sort()) {
+        if (!entry.endsWith('.md') || !idSchema.safeParse(entry.slice(0,-3)).success) continue;
+        managedFiles++;
+        try {
+          const file = path.join(this.notes, entry); this.rejectLink(file);
+          const stat = lstatSync(file);
+          if (!stat.isFile() || stat.size > 256000) throw new Error('Expected a regular managed note under 256 KB');
+          const memory = parseMemory(readFileSync(file,'utf8'), NOTE_DIR + '/' + entry);
+          if (memory.id + '.md' !== entry) throw new Error('Memory ID differs from filename');
+        } catch (error) { issues.push({ path: NOTE_DIR + '/' + entry, message: error instanceof Error ? error.message : String(error) }); }
+      }
+      if (!issues.length) { try { this.scan(); } catch (error) { issues.push({ path: NOTE_DIR, message: error instanceof Error ? error.message : String(error) }); } }
+      return { healthy: issues.length === 0, managedFiles, issues };
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
