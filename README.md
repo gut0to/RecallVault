@@ -4,7 +4,7 @@ Persistent, inspectable memory for AI agents, backed by your Obsidian vault.
 
 RecallVault turns project decisions, confirmed facts, and lessons into ordinary Markdown notes. Agents can recover the relevant context in a later session, trace it to its source, and retire outdated knowledge.
 
-**Status:** early MVP. The memory engine and CLI are implemented; MCP integration follows in a separate pull request. Search is lexical; memories are supplied explicitly by a user or agent.
+**Status:** early MVP with a memory engine, CLI, and stdio MCP server. Search is lexical; memories are supplied explicitly by a user or agent. [Leia em português](docs/README.pt-BR.md).
 
 ## Quickstart
 
@@ -21,7 +21,7 @@ node dist/cli.js remember --vault .work/demo-vault --input examples/decision.jso
 node dist/cli.js search --vault .work/demo-vault --project demo-api --query "offline SQLite"
 ```
 
-On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`. Until the implementation PRs are merged, check out `feat/memory-engine` for this quickstart.
+On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`. Until the implementation PRs are merged, check out `feat/mcp-integration` for the complete MVP or `feat/memory-engine` for the standalone engine.
 
 Open `.work/demo-vault` as an Obsidian vault to inspect the generated notes, or use an existing vault path. Only `RecallVault/memories` is managed. The `.recallvault` directory is a disposable index; exclude it from vault sync and version control if desired.
 
@@ -46,6 +46,26 @@ node dist/cli.js reindex --vault /path/to/vault
 Notes are ordinary Markdown with YAML properties and UUID filenames. Editing content in Obsidian is reflected on the next search. If you rename a memory title, update both the `title` property and heading. Deleting a managed note removes it from the index at the next operation. Invalid managed notes cause an actionable error instead of returning stale index data.
 
 Supersession creates a new note linked to its predecessor. Default retrieval suppresses old decisions. Forgetting deletes the selected current note and its current index data; it does not erase external backups or Git history. A superseded predecessor stays retired when its replacement is forgotten.
+
+## Connect an AI agent
+
+Build first, then configure a compatible MCP host to launch:
+
+```sh
+node /absolute/path/to/RecallVault/dist/mcp.js --vault /absolute/path/to/your/vault
+```
+
+Use the [configuration example](examples/mcp-config.json) and [MCP guide](docs/mcp.md). The host must support local stdio servers; configuration locations and formats vary. The server exposes six tools: `remember`, `search_memory`, `get_memory`, `supersede_memory`, `forget_memory`, and `reindex_memory`.
+
+RecallVault does not connect itself to existing chats or monitor conversations. A configured host makes the tools available to its agent, and that agent decides when to call them. [Suggested agent instructions](examples/agent-instructions.md) define a practical workflow.
+
+### Run the two-session demo
+
+```sh
+npm run demo
+```
+
+The demo launches an MCP server process, records a decision, closes the session, and launches a fresh server process to recover it with its original source. It then verifies project isolation and supersedes the decision. It uses synthetic data in a temporary vault and cleans up afterward. It tests protocol and persistence; no LLM is invoked.
 
 ## Development
 

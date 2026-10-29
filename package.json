@@ -5,16 +5,34 @@
   "type": "module",
   "private": true,
   "license": "MIT",
-  "engines": { "node": ">=24.15.0 <25" },
-  "bin": { "recallvault": "dist/cli.js" },
-  "exports": { ".": "./dist/index.js" },
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "bin": {
+    "recallvault": "dist/cli.js",
+    "recallvault-mcp": "dist/mcp.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test test/*.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp.ts",
+    "demo": "npm run build && node scripts/demo.mjs"
   },
-  "dependencies": { "yaml": "2.9.1", "zod": "4.6.7" },
-  "devDependencies": { "@types/node": "^24.0.0", "tsx": "^4.20.0", "typescript": "^5.9.0" }
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
 }
