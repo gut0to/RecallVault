@@ -269,6 +269,15 @@ export class MemoryStore {
     });
   }
 
+  digest(project: string): { markdown: string; memories: number } {
+    project = projectSchema.parse(project);
+    return this.withLock(() => {
+      const active = this.reconcile().filter(m => m.project === project && m.status === 'confirmed').sort((a,b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
+      const sections = active.map(m => '## ' + m.title + '\n\nType: ' + m.kind + '\nNote: ' + m.path + '\n\n' + m.content + '\n\nSources: ' + m.sources.map(s => s.reference).join(', '));
+      return { markdown: '# Project memory: ' + project + '\n\n' + sections.join('\n\n---\n\n'), memories: active.length };
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
