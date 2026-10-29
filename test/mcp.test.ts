@@ -36,7 +36,7 @@ test('MCP advertises schemas and read/write annotations', { timeout: 20000 }, as
   try {
     client = await connect(vault);
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 11);
+    assert.equal(tools.length, 14);
     assert.equal(tools.find(t => t.name === 'search_memory')?.annotations?.readOnlyHint, true);
     assert.equal(tools.find(t => t.name === 'forget_memory')?.annotations?.destructiveHint, true);
     assert.ok(tools.find(t => t.name === 'remember')?.inputSchema.required?.includes('sources'));
@@ -94,5 +94,14 @@ test('MCP browsing and context tools expose sourced project knowledge', {timeout
  assert.equal(payload(await client.callTool({name:'memory_stats',arguments:{project:'demo'}})).total,1);
  assert.equal(payload(await client.callTool({name:'list_memories',arguments:{project:'demo'}})).total,1);
  assert.equal(payload(await client.callTool({name:'memory_history',arguments:{project:'demo',id:saved.memory.id}})).memories.length,1);
+ } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
+});
+
+test('MCP reviewed ingestion and confirmation preserve evidence', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-ingestion-'));let client:Client|undefined;
+ try {client=await connect(vault);const preview=payload(await client.callTool({name:'import_memories',arguments:{memories:[{...input,status:'hypothesis'}]}}));assert.equal(preview.dryRun,true);
+ const imported=payload(await client.callTool({name:'import_memories',arguments:{memories:[{...input,status:'hypothesis'}],dryRun:false}}));
+ const id=imported.memories[0].id;assert.equal(payload(await client.callTool({name:'confirm_memory',arguments:{id,project:'demo',sources:[{reference:'test:verified'}]}})).status,'confirmed');
+ assert.equal(payload(await client.callTool({name:'add_memory_sources',arguments:{id,project:'demo',sources:[{reference:'review:follow-up'}]}})).sources.length,3);
  } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
 });

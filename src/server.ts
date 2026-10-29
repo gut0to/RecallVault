@@ -1,7 +1,7 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { MemoryStore } from './store.js';
-import { idSchema, memoryInputSchema, projectSchema, searchSchema, listSchema, VaultError } from './schema.js';
+import { idSchema, memoryInputSchema, projectSchema, searchSchema, listSchema, sourceSchema, VaultError } from './schema.js';
 
 const instructions = `RecallVault stores persistent project memory in an Obsidian-compatible vault.
 Search the explicit project before answering questions about prior decisions. Quote source references.
@@ -68,6 +68,14 @@ export function createServer(store: MemoryStore): McpServer {
     async input => respond(() => store.context(input)));
   server.registerTool('project_digest', { description: 'Read a digest of active confirmed project knowledge with sources.', inputSchema: z.object({project: projectSchema}).strict(), annotations: read },
     async ({project}) => respond(() => store.digest(project)));
+
+
+  server.registerTool('add_memory_sources', { description: 'Add verified source references to an existing memory without changing its statement.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: write },
+    async ({id,project,sources}) => respond(() => store.addSources(id,project,sources)));
+  server.registerTool('confirm_memory', { description: 'Promote an explicitly verified hypothesis using supplied evidence. Only use after confirmation.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: destructive },
+    async ({id,project,sources}) => respond(() => store.confirm(id,project,sources)));
+  server.registerTool('import_memories', { description: 'Preview a batch of explicit memories by default. Set dryRun=false only after reviewing the candidates.', inputSchema: z.object({memories:memoryInputSchema.array().min(1).max(100),dryRun:z.boolean().default(true)}).strict(), annotations: { ...write, idempotentHint:false } },
+    async ({memories,dryRun}) => respond(() => store.rememberBatch(memories,dryRun)));
 
   return server;
 }
