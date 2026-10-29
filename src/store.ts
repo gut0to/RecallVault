@@ -156,6 +156,20 @@ export class MemoryStore {
     });
   }
 
+  confirm(id: string, project: string, sources: unknown): Memory {
+    idSchema.parse(id); project = projectSchema.parse(project);
+    const evidence = sourceSchema.array().min(1).max(20).parse(sources);
+    return this.withLock(() => {
+      const memory = this.reconcile().find(m => m.id === id && m.project === project);
+      if (!memory) throw new VaultError('NOT_FOUND', 'Memory not found in this project');
+      if (memory.status !== 'hypothesis') throw new VaultError('NOT_HYPOTHESIS', 'Only an active hypothesis can be confirmed');
+      const sources = [...new Map([...memory.sources, ...evidence].map(s => [JSON.stringify(s), s])).values()];
+      if (sources.length > 20) throw new VaultError('SOURCE_LIMIT', 'A memory supports at most 20 source entries');
+      const confirmed: Memory = { ...memory, sources, status: 'confirmed', updated: new Date().toISOString() };
+      this.atomicWrite(confirmed); this.reconcile(); return confirmed;
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
