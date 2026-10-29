@@ -1,0 +1,10 @@
+name: Bug report
+description: Report a reproducible RecallVault problem using synthetic data.
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include Node version, OS, command, expected behavior, and actual behavior. Remove personal notes and credentials.
+    validations:
+      required: true
