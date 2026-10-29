@@ -138,10 +138,16 @@ export class MemoryStore {
     const notes = this.scan();
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      this.db.exec('DELETE FROM memory_fts; DELETE FROM memories;');
-      const insert = this.db.prepare('INSERT INTO memories VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const existing = new Map(this.db.prepare('SELECT id, payload FROM memories').all().map(row => [String(row.id), String(row.payload)]));
+      const desired = new Set(notes.map(memory => memory.id));
+      for (const id of existing.keys()) {
+        if (!desired.has(id)) { this.db.prepare('DELETE FROM memory_fts WHERE id=?').run(id); this.db.prepare('DELETE FROM memories WHERE id=?').run(id); }
+      }
+      const insert = this.db.prepare('INSERT INTO memories VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET project=excluded.project,title=excluded.title,content=excluded.content,status=excluded.status,fingerprint=excluded.fingerprint,payload=excluded.payload');
       const fts = this.db.prepare('INSERT INTO memory_fts(id,title,content,tags,sources) VALUES (?, ?, ?, ?, ?)');
       for (const memory of notes) {
+        if (existing.get(memory.id) === JSON.stringify(memory)) continue;
+        this.db.prepare('DELETE FROM memory_fts WHERE id=?').run(memory.id);
         insert.run(memory.id, memory.project, memory.title, memory.content, memory.status, hash(memory.content), JSON.stringify(memory));
         fts.run(memory.id, memory.title, memory.content, memory.tags.join(' '), memory.sources.map(s => `${s.reference} ${s.excerpt ?? ''}`).join(' '));
       }
