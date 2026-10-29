@@ -80,12 +80,14 @@ export class MemoryStore {
   private atomicWrite(memory: Memory): void {
     const { content, path: _path, ...meta } = memory;
     metadataSchema.parse(meta);
+    const serialized = serializeMemory(meta, content);
+    if (Buffer.byteLength(serialized, 'utf8') > 256000) throw new VaultError('NOTE_TOO_LARGE', 'Serialized memory exceeds the managed note limit of 256 KB');
     const destination = this.file(memory.id);
     const temporary = path.join(this.notes, `.${randomUUID()}.tmp`);
     let fd: number | undefined;
     try {
       fd = openSync(temporary, 'wx', 0o600);
-      writeFileSync(fd, serializeMemory(meta, content), 'utf8'); fsyncSync(fd); closeSync(fd); fd = undefined;
+      writeFileSync(fd, serialized, 'utf8'); fsyncSync(fd); closeSync(fd); fd = undefined;
       renameSync(temporary, destination);
     } finally {
       if (fd !== undefined) closeSync(fd);

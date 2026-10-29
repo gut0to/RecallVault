@@ -45,3 +45,5 @@ test('retrieval budgets preserve complete emoji characters',t=>{const {store}=fi
 test('long-note excerpts include the matching passage',t=>{const {store}=fixture(t);store.remember(input({title:'Architecture',content:'Background. '.repeat(100)+'SQLite fixes offline persistence.'}));const found=store.search({project:'alpha',query:'SQLite',maxChars:200}).results[0]!;assert.match(found.content,/SQLite/);assert.equal(found.truncated,true);});
 
 test('recall explains which query words matched',t=>{const {store}=fixture(t);store.remember(input());assert.deepEqual(store.search({project:'alpha',query:'SQLite unrelated'}).results[0]?.matchedTerms,['SQLite']);});
+
+test('oversized Unicode metadata cannot poison the vault',t=>{const {store}=fixture(t);assert.throws(()=>store.remember(input({sources:Array.from({length:20},(_,i)=>({reference:String(i)+'界'.repeat(1900),excerpt:'界'.repeat(3900)}))})),/256 KB/);assert.equal(store.reindex().indexed,0);});
