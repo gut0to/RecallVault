@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "recallvault": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/RecallVault/dist/mcp.js",
+        "--vault",
+        "/absolute/path/to/your/vault"
+      ]
+    }
+  }
+}

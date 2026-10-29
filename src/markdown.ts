@@ -13,12 +13,16 @@ export function parseMemory(raw: string, relativePath: string): Memory {
     let body = match[2]!.trim();
     const lines = body.split(/\r?\n/);
     if (lines[0]?.startsWith('# ')) {
-      if (lines[0].slice(2) !== meta.title) throw new Error('Heading and title differ; update both');
+      if (lines[0].slice(2) !== meta.title)
+        throw new Error('Heading and title differ; update both');
       body = lines.slice(1).join('\n').trim();
     }
     if (!body || body.length > 20000) throw new Error('Content must contain 1 to 20000 characters');
     return { ...meta, content: body, path: relativePath };
   } catch (error) {
-    throw new VaultError('INVALID_NOTE', `Invalid memory ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new VaultError(
+      'INVALID_NOTE',
+      `Invalid memory ${relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }

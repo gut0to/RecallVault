@@ -5,16 +5,50 @@
   "type": "module",
   "private": true,
   "license": "MIT",
-  "engines": { "node": ">=24.15.0 <25" },
-  "bin": { "recallvault": "dist/cli.js" },
-  "exports": { ".": "./dist/index.js" },
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "bin": {
+    "recallvault": "dist/cli.js",
+    "recallvault-mcp": "dist/mcp.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "tsx --test test/*.test.ts",
-    "check": "npm run typecheck && npm test && npm run build",
-    "cli": "tsx src/cli.ts"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "cli": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp.ts",
+    "demo": "npm run build && node scripts/demo.mjs",
+    "evaluate": "npm run build && node scripts/evaluate.mjs",
+    "benchmark": "npm run build && node scripts/benchmark.mjs",
+    "format": "prettier --write .",
+    "lint": "prettier --check ."
   },
-  "dependencies": { "yaml": "2.9.1", "zod": "4.6.7" },
-  "devDependencies": { "@types/node": "^24.0.0", "tsx": "^4.20.0", "typescript": "^5.9.0" }
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "^24.0.0",
+    "prettier": "3.9.10",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs",
+    "examples"
+  ]
 }
