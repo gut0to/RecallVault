@@ -192,6 +192,24 @@ export class MemoryStore {
     });
   }
 
+  history(id: string, project: string): { memories: Memory[]; missingIds: string[] } {
+    idSchema.parse(id); project = projectSchema.parse(project);
+    return this.withLock(() => {
+      const notes = this.reconcile().filter(m => m.project === project);
+      const byId = new Map(notes.map(m => [m.id, m]));
+      if (!byId.has(id)) throw new VaultError('NOT_FOUND', 'Memory not found in this project');
+      const pending = [id], visited = new Set<string>(), memories: Memory[] = [], missingIds: string[] = [];
+      while (pending.length) {
+        const next = pending.pop()!; if (visited.has(next)) continue; visited.add(next);
+        const memory = byId.get(next); if (!memory) { missingIds.push(next); continue; }
+        memories.push(memory);
+        if (memory.supersedes) pending.push(memory.supersedes);
+        if (memory.superseded_by) pending.push(memory.superseded_by);
+      }
+      return { memories: memories.sort((a,b) => a.created.localeCompare(b.created) || a.id.localeCompare(b.id)), missingIds: missingIds.sort() };
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
