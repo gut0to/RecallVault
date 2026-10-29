@@ -276,9 +276,10 @@ export class MemoryStore {
       const rows = this.db.prepare(`
         SELECT m.payload FROM memory_fts f JOIN memories m ON m.id=f.id
         WHERE memory_fts MATCH ? AND m.project=?
+          AND (? IS NULL OR json_extract(m.payload, '$.kind')=?)
           AND (m.status='confirmed' OR (?=1 AND m.status='hypothesis') OR (?=1 AND m.status='superseded'))
         ORDER BY bm25(memory_fts, 0, 5, 1, 2), m.id LIMIT ?
-      `).all(match, options.project, Number(options.includeHypotheses), Number(options.includeSuperseded), options.limit);
+      `).all(match, options.project, options.kind ?? null, options.kind ?? null, Number(options.includeHypotheses), Number(options.includeSuperseded), options.limit);
       let remaining = options.maxChars; const results: SearchResult[] = [];
       for (const row of rows) {
         if (remaining <= 0) break;
