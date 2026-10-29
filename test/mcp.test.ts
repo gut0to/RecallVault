@@ -119,3 +119,8 @@ test('read-only MCP mode advertises no mutation tools', {timeout:20000}, async()
  try {client=await connect(vault,['--read-only']);const {tools}=await client.listTools();assert.ok(tools.length>0);assert.ok(tools.every(tool=>tool.annotations?.readOnlyHint));assert.ok(!tools.some(tool=>tool.name==='remember'||tool.name==='forget_memory'));}
  finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
 });
+
+test('an empty project restriction fails startup instead of broadening access', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-empty-scope-'));
+ try{await assert.rejects(connect(vault,['--project','']),/STARTUP_FAILED/);}finally{rmSync(vault,{recursive:true,force:true});}
+});
