@@ -30,13 +30,19 @@ export class MemoryStore {
     this.rejectLink(dbPath);
     this.db = new DatabaseSync(dbPath);
     this.db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON;');
-    try { this.withLock(() => this.db.exec(`
+    try { this.withLock(() => { this.db.exec(`
       CREATE TABLE IF NOT EXISTS memories (
         id TEXT PRIMARY KEY, project TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
         status TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL
       );
-      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(id UNINDEXED, title, content, tags, tokenize='unicode61 remove_diacritics 2');
-    `)); } catch (error) { this.db.close(); this.closed = true; throw error; }
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(id UNINDEXED, title, content, tags, sources, tokenize='unicode61 remove_diacritics 2');
+    `);
+      const columns = this.db.prepare('PRAGMA table_info(memory_fts)').all();
+      if (!columns.some(column => column.name === 'sources')) {
+        this.db.exec("DROP TABLE memory_fts; DELETE FROM memories; CREATE VIRTUAL TABLE memory_fts USING fts5(id UNINDEXED, title, content, tags, sources, tokenize='unicode61 remove_diacritics 2');");
+      }
+      this.db.exec('PRAGMA user_version=2');
+    }); } catch (error) { this.db.close(); this.closed = true; throw error; }
   }
 
   close(): void { if (!this.closed) { this.db.close(); this.closed = true; } }
@@ -134,10 +140,10 @@ export class MemoryStore {
     try {
       this.db.exec('DELETE FROM memory_fts; DELETE FROM memories;');
       const insert = this.db.prepare('INSERT INTO memories VALUES (?, ?, ?, ?, ?, ?, ?)');
-      const fts = this.db.prepare('INSERT INTO memory_fts(id,title,content,tags) VALUES (?, ?, ?, ?)');
+      const fts = this.db.prepare('INSERT INTO memory_fts(id,title,content,tags,sources) VALUES (?, ?, ?, ?, ?)');
       for (const memory of notes) {
         insert.run(memory.id, memory.project, memory.title, memory.content, memory.status, hash(memory.content), JSON.stringify(memory));
-        fts.run(memory.id, memory.title, memory.content, memory.tags.join(' '));
+        fts.run(memory.id, memory.title, memory.content, memory.tags.join(' '), memory.sources.map(s => `${s.reference} ${s.excerpt ?? ''}`).join(' '));
       }
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
@@ -283,7 +289,7 @@ export class MemoryStore {
           AND NOT EXISTS (SELECT 1 FROM json_each(?) required WHERE NOT EXISTS
             (SELECT 1 FROM json_each(m.payload, '$.tags') tagged WHERE lower(tagged.value)=lower(required.value)))
           AND (m.status='confirmed' OR (?=1 AND m.status='hypothesis') OR (?=1 AND m.status='superseded'))
-        ORDER BY bm25(memory_fts, 0, 5, 1, 2), m.id LIMIT ?
+        ORDER BY bm25(memory_fts, 0, 5, 1, 2, 0.5), m.id LIMIT ?
       `).all(match, options.project, options.kind ?? null, options.kind ?? null, JSON.stringify(options.tags), Number(options.includeHypotheses), Number(options.includeSuperseded), options.limit);
       let remaining = options.maxChars; const results: SearchResult[] = [];
       for (const row of rows) {
@@ -292,8 +298,8 @@ export class MemoryStore {
         const content = excerpt(m.content, words, remaining); remaining -= content.length;
         results.push({ id: m.id, title: m.title, project: m.project, kind: m.kind, status: m.status,
           path: m.path, sources: m.sources, content, truncated: content.length < m.content.length,
-          matchedTerms: words.filter(word => [m.title, m.content, ...m.tags].join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().includes(word.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())),
-          reason: 'Ranked keyword match in title, content, or tags; filtered to the requested project and statuses.' });
+          matchedTerms: words.filter(word => [m.title, m.content, ...m.tags, ...m.sources.flatMap(s => [s.reference, s.excerpt ?? ''])].join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().includes(word.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())),
+          reason: 'Ranked keyword match in title, content, tags, or sources; filtered to the requested project and statuses.' });
       }
       return { results, contentChars: options.maxChars - remaining, budget: options.maxChars };
     });

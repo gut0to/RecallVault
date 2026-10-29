@@ -47,3 +47,5 @@ test('long-note excerpts include the matching passage',t=>{const {store}=fixture
 test('recall explains which query words matched',t=>{const {store}=fixture(t);store.remember(input());assert.deepEqual(store.search({project:'alpha',query:'SQLite unrelated'}).results[0]?.matchedTerms,['SQLite']);});
 
 test('oversized Unicode metadata cannot poison the vault',t=>{const {store}=fixture(t);assert.throws(()=>store.remember(input({sources:Array.from({length:20},(_,i)=>({reference:String(i)+'界'.repeat(1900),excerpt:'界'.repeat(3900)}))})),/256 KB/);assert.equal(store.reindex().indexed,0);});
+
+test('source references and excerpts participate in recall',t=>{const {store}=fixture(t);store.remember(input({sources:[{reference:'meeting:architecture-review',excerpt:'Benchmark confirmed WAL throughput.'}]}));const result=store.search({project:'alpha',query:'throughput'}).results[0]!;assert.ok(result);assert.deepEqual(result.matchedTerms,['throughput']);});
