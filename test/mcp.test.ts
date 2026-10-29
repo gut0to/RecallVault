@@ -113,3 +113,9 @@ test('MCP project scope rejects cross-project reads and mixed batches', {timeout
  assert.equal(payload(await client.callTool({name:'memory_stats',arguments:{project:'demo'}})).total,0);
  } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
 });
+
+test('read-only MCP mode advertises no mutation tools', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-readonly-'));let client:Client|undefined;
+ try {client=await connect(vault,['--read-only']);const {tools}=await client.listTools();assert.ok(tools.length>0);assert.ok(tools.every(tool=>tool.annotations?.readOnlyHint));assert.ok(!tools.some(tool=>tool.name==='remember'||tool.name==='forget_memory'));}
+ finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
+});

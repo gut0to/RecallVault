@@ -33,7 +33,7 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
   const destructive = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
   const lookup = z.object({ id: idSchema, project: projectSchema }).strict();
 
-  server.registerTool('remember', {
+  if (!options.readOnly) server.registerTool('remember', {
     description: 'Persist an explicit durable memory with project and source references. Use hypothesis for uncertain statements. Returns the existing active memory if content is a duplicate.',
     inputSchema: memoryInputSchema, annotations: write,
   }, async input => execute(input.project, () => store.remember(input)));
@@ -48,17 +48,17 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
     inputSchema: lookup, annotations: read,
   }, async ({ id, project }) => execute(project, () => store.get(id, project)));
 
-  server.registerTool('supersede_memory', {
+  if (!options.readOnly) server.registerTool('supersede_memory', {
     description: 'Replace an explicitly changed decision with a confirmed sourced memory in the same project. Preserve the predecessor as superseded history.',
     inputSchema: z.object({ id: idSchema, replacement: memoryInputSchema }).strict(), annotations: destructive,
   }, async ({ id, replacement }) => execute(replacement.project, () => store.supersede(id, replacement)));
 
-  server.registerTool('forget_memory', {
+  if (!options.readOnly) server.registerTool('forget_memory', {
     description: 'Delete a memory note and its current searchable index data when the user requests forgetting. External backups and history are not erased. Requires confirm=true.',
     inputSchema: lookup.extend({ confirm: z.literal(true) }), annotations: destructive,
   }, async ({ id, project }) => execute(project, () => store.forget(id, project)));
 
-  server.registerTool('reindex_memory', {
+  if (!options.readOnly) server.registerTool('reindex_memory', {
     description: 'Rebuild the disposable local search index from managed Markdown notes. Search also refreshes the index automatically.',
     inputSchema: z.object({}).strict(), annotations: write,
   }, async () => allowedProject === undefined ? respond(() => store.reindex()) : execute(allowedProject, () => ({indexed:store.stats(allowedProject).total})));
@@ -76,11 +76,11 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
     async ({project}) => execute(project, () => store.digest(project)));
 
 
-  server.registerTool('add_memory_sources', { description: 'Add verified source references to an existing memory without changing its statement.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: write },
+  if (!options.readOnly) server.registerTool('add_memory_sources', { description: 'Add verified source references to an existing memory without changing its statement.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: write },
     async ({id,project,sources}) => execute(project, () => store.addSources(id,project,sources)));
-  server.registerTool('confirm_memory', { description: 'Promote an explicitly verified hypothesis using supplied evidence. Only use after confirmation.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: destructive },
+  if (!options.readOnly) server.registerTool('confirm_memory', { description: 'Promote an explicitly verified hypothesis using supplied evidence. Only use after confirmation.', inputSchema: lookup.extend({sources:sourceSchema.array().min(1).max(20)}), annotations: destructive },
     async ({id,project,sources}) => execute(project, () => store.confirm(id,project,sources)));
-  server.registerTool('import_memories', { description: 'Preview a batch of explicit memories by default. Set dryRun=false only after reviewing the candidates.', inputSchema: z.object({memories:memoryInputSchema.array().min(1).max(100),dryRun:z.boolean().default(true)}).strict(), annotations: { ...write, idempotentHint:false } },
+  if (!options.readOnly) server.registerTool('import_memories', { description: 'Preview a batch of explicit memories by default. Set dryRun=false only after reviewing the candidates.', inputSchema: z.object({memories:memoryInputSchema.array().min(1).max(100),dryRun:z.boolean().default(true)}).strict(), annotations: { ...write, idempotentHint:false } },
     async ({memories,dryRun}) => respond(() => {
       if (allowedProject !== undefined && memories.some(m => m.project !== allowedProject)) throw new VaultError('PROJECT_DENIED', 'Batch contains a project outside this server scope');
       return store.rememberBatch(memories,dryRun);
