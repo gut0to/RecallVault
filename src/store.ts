@@ -6,7 +6,7 @@ import {
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseMemory, serializeMemory } from './markdown.js';
-import { idSchema, memoryInputSchema, projectSchema, searchSchema, VaultError,
+import { idSchema, memoryInputSchema, metadataSchema, projectSchema, searchSchema, VaultError,
   type Memory, type MemoryInput, type SearchInput, type SearchResult } from './schema.js';
 
 const NOTE_DIR = 'RecallVault/memories';
@@ -78,6 +78,7 @@ export class MemoryStore {
 
   private atomicWrite(memory: Memory): void {
     const { content, path: _path, ...meta } = memory;
+    metadataSchema.parse(meta);
     const destination = this.file(memory.id);
     const temporary = path.join(this.notes, `.${randomUUID()}.tmp`);
     let fd: number | undefined;
