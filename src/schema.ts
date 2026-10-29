@@ -38,6 +38,7 @@ export const searchSchema = z.object({
   project: projectSchema,
   query: z.string().trim().min(1).max(500),
   mode: z.enum(['any', 'all']).default('any'),
+  prefix: z.boolean().default(false),
   limit: z.number().int().min(1).max(20).default(5),
   maxChars: z.number().int().min(200).max(20000).default(6000),
   kind: z.enum(['decision', 'fact', 'lesson', 'preference', 'task']).optional(),
