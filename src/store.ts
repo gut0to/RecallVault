@@ -6,7 +6,7 @@ import {
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseMemory, serializeMemory } from './markdown.js';
-import { truncate } from './text.js';
+import { excerpt } from './text.js';
 import { idSchema, memoryInputSchema, metadataSchema, sourceSchema, projectSchema, searchSchema, listSchema, VaultError,
   type Memory, type MemoryInput, type ListInput, type SearchInput, type SearchResult } from './schema.js';
 
@@ -287,7 +287,7 @@ export class MemoryStore {
       for (const row of rows) {
         if (remaining <= 0) break;
         const m = JSON.parse(String(row.payload)) as Memory;
-        const content = truncate(m.content, remaining); remaining -= content.length;
+        const content = excerpt(m.content, words, remaining); remaining -= content.length;
         results.push({ id: m.id, title: m.title, project: m.project, kind: m.kind, status: m.status,
           path: m.path, sources: m.sources, content, truncated: content.length < m.content.length,
           reason: 'Ranked keyword match in title, content, or tags; filtered to the requested project and statuses.' });
