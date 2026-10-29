@@ -124,3 +124,10 @@ test('an empty project restriction fails startup instead of broadening access', 
  const vault=mkdtempSync(path.join(tmpdir(),'recallvault-empty-scope-'));
  try{await assert.rejects(connect(vault,['--project','']),/STARTUP_FAILED/);}finally{rmSync(vault,{recursive:true,force:true});}
 });
+
+test('oversized MCP batches are rejected before storing notes', {timeout:20000}, async()=>{
+ const vault=mkdtempSync(path.join(tmpdir(),'recallvault-size-'));let client:Client|undefined;
+ try {client=await connect(vault);const large=Array.from({length:5},(_,i)=>({...input,content:'Unique record '+i,sources:Array.from({length:20},(_,j)=>({reference:'ref-'+j+'x'.repeat(1800),excerpt:'e'.repeat(3800)}))}));
+ const denied=await client.callTool({name:'import_memories',arguments:{memories:large,dryRun:false}});assert.equal(denied.isError,true);assert.match(JSON.stringify(denied),/BATCH_TOO_LARGE/);assert.equal(payload(await client.callTool({name:'memory_stats',arguments:{project:'demo'}})).total,0);
+ } finally {await client?.close();rmSync(vault,{recursive:true,force:true});}
+});

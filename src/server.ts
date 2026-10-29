@@ -12,8 +12,10 @@ Search budgets apply to content characters, not total JSON size or model tokens.
 
 function respond(action: () => unknown): CallToolResult {
   try {
-    const data = JSON.parse(JSON.stringify(action())) as Record<string, unknown>;
-    return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data };
+    const serialized = JSON.stringify(action());
+    if (Buffer.byteLength(serialized,'utf8') > 1000000) throw new VaultError('RESPONSE_TOO_LARGE','Response exceeds the MCP result budget. Use fewer results, narrower filters, or read individual notes.');
+    const data = JSON.parse(serialized) as Record<string, unknown>;
+    return { content: [{ type: 'text', text: serialized }], structuredContent: data };
   } catch (error) {
     const data = { error: error instanceof VaultError ? error.code : 'INVALID_REQUEST', message: error instanceof Error ? error.message : String(error) };
     return { isError: true, content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data };
@@ -83,6 +85,7 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
   if (!options.readOnly) server.registerTool('import_memories', { description: 'Preview a batch of explicit memories by default. Set dryRun=false only after reviewing the candidates.', inputSchema: z.object({memories:memoryInputSchema.array().min(1).max(100),dryRun:z.boolean().default(true)}).strict(), annotations: { ...write, idempotentHint:false } },
     async ({memories,dryRun}) => respond(() => {
       if (allowedProject !== undefined && memories.some(m => m.project !== allowedProject)) throw new VaultError('PROJECT_DENIED', 'Batch contains a project outside this server scope');
+      if (Buffer.byteLength(JSON.stringify(memories),'utf8') > 500000) throw new VaultError('BATCH_TOO_LARGE','Split MCP imports into batches under 500 KB before preview or apply');
       return store.rememberBatch(memories,dryRun);
     }));
 
