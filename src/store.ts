@@ -181,6 +181,17 @@ export class MemoryStore {
     });
   }
 
+  stats(project: string): { project: string; total: number; byStatus: Record<string, number>; byKind: Record<string, number>; tags: string[] } {
+    project = projectSchema.parse(project);
+    return this.withLock(() => {
+      const memories = this.reconcile().filter(m => m.project === project);
+      const byStatus: Record<string, number> = { confirmed: 0, hypothesis: 0, superseded: 0 };
+      const byKind: Record<string, number> = Object.create(null) as Record<string, number>;
+      for (const memory of memories) { byStatus[memory.status] = (byStatus[memory.status] ?? 0) + 1; byKind[memory.kind] = (byKind[memory.kind] ?? 0) + 1; }
+      return { project, total: memories.length, byStatus, byKind, tags: [...new Set(memories.flatMap(m => m.tags))].sort() };
+    });
+  }
+
   reindex(): { indexed: number } { return this.withLock(() => ({ indexed: this.reconcile().length })); }
 
   private make(input: MemoryInput): Memory {
