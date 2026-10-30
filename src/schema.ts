@@ -16,6 +16,23 @@ export const sourceSchema = z
     excerpt: z.string().trim().min(1).max(4000).optional(),
   })
   .strict();
+export const relationTypeSchema = z.enum(['supports', 'contradicts', 'depends_on', 'related_to']);
+export const relationSchema = z.object({
+  target: idSchema,
+  type: relationTypeSchema,
+  rationale: z.string().trim().min(1).max(500),
+}).strict();
+
+export const graphSchema = z.object({
+  project: projectSchema,
+  centerId: idSchema.optional(),
+  depth: z.number().int().min(1).max(3).default(1),
+  maxNodes: z.number().int().min(1).max(100).default(40),
+  includeHypotheses: z.boolean().default(false),
+  includeSuperseded: z.boolean().default(false),
+}).strict();
+export type GraphInput = z.input<typeof graphSchema>;
+
 export const memoryInputSchema = z
   .object({
     project: projectSchema,
@@ -25,11 +42,15 @@ export const memoryInputSchema = z
       .min(1)
       .max(200)
       .refine((s) => !/[\r\n]/.test(s), 'Title must be one line'),
-    content: z.string().trim().min(1).max(20000),
+    content: z.string().trim().min(1).max(20000).refine(
+      (text) => !text.includes('<!-- recallvault:links:start -->'),
+      'Reserved graph-link delimiter is not allowed in memory content',
+    ),
     kind: z.enum(['decision', 'fact', 'lesson', 'preference', 'task']),
     status: z.enum(['confirmed', 'hypothesis']).default('confirmed'),
     sources: z.array(sourceSchema).min(1).max(20),
     tags: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+    relations: z.array(relationSchema).max(30).default([]),
   })
   .strict();
 
@@ -50,6 +71,10 @@ export const metadataSchema = memoryInputSchema
       ctx.addIssue({ code: 'custom', message: 'updated cannot precede created' });
     if (meta.superseded_by && meta.status !== 'superseded')
       ctx.addIssue({ code: 'custom', message: 'Replacement link requires superseded status' });
+    if (meta.relations.some((r) => r.target === meta.id))
+      ctx.addIssue({ code: 'custom', message: 'Memory cannot relate to itself' });
+    if (new Set(meta.relations.map((r) => `${r.target}:${r.type}`)).size !== meta.relations.length)
+      ctx.addIssue({ code: 'custom', message: 'Duplicate graph relations' });
     if (meta.id === meta.supersedes || meta.id === meta.superseded_by)
       ctx.addIssue({ code: 'custom', message: 'Memory cannot reference itself' });
   });
