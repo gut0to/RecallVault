@@ -1,0 +1,11 @@
+[mcp_servers.recallvault]
+command = "ssh"
+args = [
+  "-T",
+  "-o", "BatchMode=yes",
+  "arduino@100.x.y.z",
+  "node",
+  "/home/arduino/RecallVault/dist/mcp.js",
+  "--vault", "/home/arduino/RecallVaultVault"
+]
+startup_timeout_sec = 20
