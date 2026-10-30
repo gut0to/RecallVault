@@ -71,22 +71,48 @@ test('graph obeys project boundaries, visibility and scope, and rejects invented
   assert.throws(() => store.graph({ project: 'beta', centerId: root.id }), /center not found/);
 });
 
+
 test('graph persists after restart and detects deleted targets and external edits', (t) => {
   const { vault, store, remember } = setup(t);
+
   const root = remember('Primary');
   const other = remember('Dependent');
-  store.relate(root.id, 'alpha', { target: other.id, type: 'supports', rationale: 'Test source' });
+
+  store.relate(root.id, 'alpha', {
+    target: other.id,
+    type: 'supports',
+    rationale: 'Test source',
+  });
+
   const memoryPath = path.join(vault, root.path);
   const original = readFileSync(memoryPath, 'utf8');
-  writeFileSync(memoryPath, original.replace('Test source', 'Reviewed source'));
+
+  writeFileSync(
+    memoryPath,
+    original.replace('Test source', 'Reviewed source'),
+  );
+
   const newReader = new MemoryStore(vault);
-  t.after(() => newReader.close());
-  assert.equal(newReader.graph({ project: 'alpha' }).edges[0]?.rationale, 'Reviewed source');
-  store.forget(other.id, 'alpha');
-  const graph = newReader.graph({ project: 'alpha' });
-  assert.deepEqual(graph.missingTargets, [other.id]);
-  assert.equal(graph.edges.length, 0);
+
+  try {
+    const persistedGraph = newReader.graph({ project: 'alpha' });
+
+    assert.equal(
+      persistedGraph.edges[0]?.rationale,
+      'Reviewed source',
+    );
+
+    store.forget(other.id, 'alpha');
+
+    const graph = newReader.graph({ project: 'alpha' });
+
+    assert.deepEqual(graph.missingTargets, [other.id]);
+    assert.equal(graph.edges.length, 0);
+  } finally {
+    newReader.close();
+  }
 });
+
 
 test('graph enforces bounded neighborhood and explicit relation uniqueness', (t) => {
   const { store, remember } = setup(t);
