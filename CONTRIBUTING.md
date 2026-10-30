@@ -12,3 +12,9 @@ Commit messages follow `type: description`. Link relevant issues in the PR and e
 
 - `feat/memory-engine`: Markdown storage, SQLite retrieval, lifecycle, CLI, regression tests.
 - `feat/mcp-integration`: MCP tools, integration tests, agent instructions, executable demo. Initially based on `feat/memory-engine`; retarget to `main` after the first PR merges.
+
+## Graph and deployment changes
+
+Keep graph relationships explicit, project-scoped and justified. Maintain backward compatibility with older notes lacking `relations`; never add guessed edges based on text similarity. Regression cases belong in `test/graph.test.ts`. Ensure Markdown serialization does not leak generated Obsidian link footers into memory content or the SQLite full-text index.
+
+Changes to remote hosting must not expose an unauthenticated HTTP MCP endpoint or ship private tailnet addresses, vault files or SSH credentials. Run `npm run demo:graph` alongside `npm run check`.

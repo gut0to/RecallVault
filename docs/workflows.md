@@ -40,6 +40,19 @@ node dist/cli.js add-sources --vault /path/to/vault --project demo-api --id MEMO
 
 Confirmation preserves the UUID, adds evidence, and moves the note into normal retrieval. Sources are caller-supplied; RecallVault does not independently verify them.
 
+## Link memories and navigate the graph
+
+Once two memories exist in the same project, create a reviewed relation. Replace the placeholder UUID in `examples/relation.json` with an actual destination UUID.
+
+```sh
+node dist/cli.js relate --vault /path/to/vault --project demo-api --id SOURCE_UUID --input examples/relation.json
+node dist/cli.js graph --vault /path/to/vault --project demo-api --id SOURCE_UUID --depth 2
+node dist/cli.js graph-context --vault /path/to/vault --project demo-api --id SOURCE_UUID
+node dist/cli.js graph-mermaid --vault /path/to/vault --project demo-api
+```
+
+The source note gets a managed block with native Obsidian wikilinks. These links are not content for search or agent instructions. The graph is read from YAML relation metadata; it is not a naive map of every note that contains the same keywords. Missing targets from previously forgotten notes are surfaced.
+
 ## Recover task context
 
 ```sh
