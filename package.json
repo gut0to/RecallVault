@@ -1,6 +1,6 @@
 {
   "name": "recallvault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Persistent, inspectable memory for AI agents, backed by your Obsidian vault",
   "type": "module",
   "private": true,
@@ -26,6 +26,7 @@
     "cli": "tsx src/cli.ts",
     "mcp": "tsx src/mcp.ts",
     "demo": "npm run build && node scripts/demo.mjs",
+    "demo:graph": "npm run build && node scripts/graph-demo.mjs",
     "evaluate": "npm run build && node scripts/evaluate.mjs",
     "benchmark": "npm run build && node scripts/benchmark.mjs",
     "format": "prettier --write .",
