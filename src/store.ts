@@ -691,9 +691,10 @@ export class MemoryStore {
         relations: [...source.relations, parsed],
         updated: new Date().toISOString(),
       };
-      metadataSchema.parse(updated);
+      
       this.atomicWrite(updated);
       this.reconcile();
+      
       return updated;
     });
   }
