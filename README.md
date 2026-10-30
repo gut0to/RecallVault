@@ -1,17 +1,18 @@
 # RecallVault
 
-Persistent, inspectable memory for AI agents, backed by your Obsidian vault.
+Persistent, inspectable **and connected** project memory for AI agents, backed by Markdown notes compatible with Obsidian. Type-safe knowledge relations can be explored through an MCP graph or the native Obsidian Graph View.
 
 RecallVault turns project decisions, confirmed facts, and lessons into ordinary Markdown notes. Agents can recover the relevant context in a later session, trace it to its source, and retire outdated knowledge.
 
-**Status:** early MVP with a memory engine, CLI, and stdio MCP server. Search is lexical; memories are supplied explicitly by a user or agent. [Leia em português](docs/README.pt-BR.md).
+**Status:** experimental v0.2 graph release with a memory engine, CLI, stdio MCP server, explicit typed graph and native Obsidian wikilinks. Search is lexical; memories and their relations are supplied explicitly by a user or agent. [Leia em português](docs/README.pt-BR.md).
 
 ## Quickstart
 
 Requirements: Node.js 24.15+ in the 24.x line and npm. No running Obsidian instance or model API key is needed.
 
 ```sh
-git clone https://github.com/gut0to/RecallVault.git
+# Extract the delivered RecallVault ZIP, then enter the project folder.
+# The GitHub main branch will contain these additions only after you merge them.
 cd RecallVault
 npm ci
 npm run build
@@ -40,6 +41,30 @@ node dist/cli.js reindex --vault /path/to/vault
 ```
 
 `RECALLVAULT_VAULT` can replace `--vault`. Commands return JSON on stdout and failures on stderr with a nonzero exit code. Search always requires a project and excludes hypotheses and superseded memories unless explicitly requested. `--max-chars` bounds the sum of returned **content characters**, not metadata or tokens.
+
+## Typed memory graph: beyond keyword search
+
+Each memory can declare a justified relationship to another memory **in the same project**. Four relation types are supported: `supports`, `contradicts`, `depends_on` and `related_to`.
+
+```sh
+node dist/cli.js list --vault .work/demo-vault --project demo-api
+node dist/cli.js relate --vault .work/demo-vault --project demo-api --id SOURCE_UUID --input examples/relation.json
+node dist/cli.js graph --vault .work/demo-vault --project demo-api --id SOURCE_UUID --depth 2
+node dist/cli.js graph-context --vault .work/demo-vault --project demo-api --id SOURCE_UUID
+node dist/cli.js graph-mermaid --vault .work/demo-vault --project demo-api
+```
+
+To test a relation, **create two distinct memories first**, then set `examples/relation.json`'s `target` to the actual destination UUID and `SOURCE_UUID` to the source UUID. The input example uses an invalid placeholder as a real target.
+
+The engine writes `[[destination-UUID]]` wikilinks to the original Markdown note, so Obsidian Graph View shows actual links between memory nodes. The generated section is excluded from the agent-facing content. For agent retrieval, `memory_graph` returns typed nodes and edges, `unrelate_memory` removes obsolete edges, while `graph_context` traverses a bounded neighborhood rather than blindly stuffing the entire vault into context. `graph_mermaid` provides a portable visualization format.
+
+Graph edges are **declared**, never auto-guessed from keyword overlap. Missing or forgotten target UUIDs are reported. Retrieval defaults to confirmed, active memories. [Detailed graph design and usage](docs/graph-memory.md).
+
+## Host the vault and MCP on an Arduino UNO Q
+
+The UNO Q can hold the memory vault and its SQLite index on eMMC, and run the **Node.js 24 ARM64 MCP server** over a private SSH connection. Codex on Windows launches the remote stdio MCP process using Tailscale; no HTTP API, public memory port or paid Obsidian Sync subscription is required. The board is the host, and the PC is only the client.
+
+Use [`deploy/arduino/install.sh`](deploy/arduino/install.sh), the [UNO Q deployment guide](docs/arduino-deployment.md), and the [Codex remote MCP example](examples/codex-remote-mcp.toml). The Obsidian desktop vault can be mirrored to the board using Syncthing, with attention to concurrent edits and backup.
 
 ## Reviewed ingestion and handoffs
 
@@ -76,20 +101,29 @@ npm run demo
 
 The demo launches an MCP server process, records a decision, closes the session, and launches a fresh server process to recover it with its original source. It then verifies project isolation and supersedes the decision. It uses synthetic data in a temporary vault and cleans up afterward. It tests protocol and persistence; no LLM is invoked.
 
+Run the graph demonstration without an AI account:
+
+```sh
+npm run demo:graph
+```
+
+The demo creates three synthetic memories, two justified graph edges, validates an Obsidian backlink and outputs machine-readable JSON plus Mermaid. It uses a temporary vault, not your private notes.
+
 ## Development
 
 ```sh
 npm ci
+npm run format
 npm run check
 ```
 
 `npm run evaluate` runs a fixed synthetic retrieval dataset, while `npm run benchmark` measures a temporary local vault. These are reproducible checks, not evidence of semantic retrieval or production performance.
 
-Checks cover cross-session persistence, project boundaries, hypotheses, external edits, duplicate detection, supersession, interrupted writes, forgetting, budgets, Portuguese search, path confinement, and CLI subprocesses. CI runs on Linux and Windows.
+Checks cover cross-session persistence, project boundaries, hypotheses, external edits, duplicate detection, supersession, interrupted writes, forgetting, budgets, Portuguese search, path confinement, and CLI subprocesses. CI includes Linux ARM64, Linux x64 and Windows. **Verify on the actual UNO Q** before claiming deployment success.
 
 ## Current limitations
 
-- Ranked keyword retrieval, not embedding or semantic search.
+- Ranked keyword retrieval, not embedding or semantic search. Graph edges are explicit and do not automatically extract relationships.
 - Each operation still scans managed notes. The index updates only changed or deleted records; large-vault file watching remains future work.
 - Capture recognizes explicitly marked transcript lines as unconfirmed candidates. There is no model-based extraction, background conversation monitoring, or automatic contradiction resolution.
 - Cooperating writers use a lock. `lock` inspects the owner and `recover-lock --confirm` removes only a lock whose process is verified dead.

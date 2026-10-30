@@ -49,7 +49,7 @@ test('MCP advertises schemas and read/write annotations', { timeout: 20000 }, as
   try {
     client = await connect(vault);
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 14);
+    assert.equal(tools.length, 19);
     assert.equal(tools.find((t) => t.name === 'search_memory')?.annotations?.readOnlyHint, true);
     assert.equal(tools.find((t) => t.name === 'forget_memory')?.annotations?.destructiveHint, true);
     assert.ok(tools.find((t) => t.name === 'remember')?.inputSchema.required?.includes('sources'));

@@ -24,12 +24,21 @@ This is an example, not a universal host configuration schema. Consult your host
 
 Add `--project demo-api` to restrict every project-bearing tool and reject mixed-project batches. Add `--read-only` to advertise only memory read tools; the disposable cache still changes. Empty project restrictions fail startup.
 
-The server waits on stdin; starting it in a terminal does not open a chat UI. Stdout is reserved for MCP messages. Diagnostics use stderr.
+The server waits on stdin; starting it in a terminal does not open a chat UI. When running on Arduino through SSH, the remote Node process is launched per Codex session; the board stores all memory files and the index. Stdout is reserved for MCP messages. Diagnostics use stderr.
+
+## Remote MCP with Codex and Arduino UNO Q
+
+RecallVault's MCP transport remains **stdio**. For deployment on the Arduino, Codex should launch the MCP process through SSH over a private tailnet; SSH stdin/stdout carry MCP messages. This does not require a web server or a public port. See [Arduino deployment](arduino-deployment.md) and the [Codex TOML example](../examples/codex-remote-mcp.toml).
 
 ## Tools
 
 | Tool                 | Purpose                                                   | Important inputs                                                               |
 | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `memory_graph`      | Project-scoped typed graph of memories, bounded by depth and node count | project; optional centerId, depth, maxNodes, visibility flags |
+| `graph_context`      | Context handoff from typed neighboring memories | graph input schema |
+| `graph_mermaid`      | Mermaid source for graph rendering | graph input schema |
+| `relate_memory`      | Add a justified typed relation to another existing memory in same project | id, project, relation: {target, type, rationale} |
+| `unrelate_memory`    | Remove a declared relation without deleting the memory | id, project, target, type |
 | `remember`           | Store a sourced memory or return an active duplicate      | project, title, content, kind, sources; optional status/tags                   |
 | `search_memory`      | Ranked project-scoped keyword retrieval                   | project, query; optional limit, maxChars, includeHypotheses, includeSuperseded |
 | `get_memory`         | Inspect a full current or historical memory               | project, id                                                                    |

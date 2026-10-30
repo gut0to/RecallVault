@@ -1,8 +1,23 @@
 # RecallVault
 
-Memória persistente e inspecionável para agentes de IA, usando seu vault do Obsidian.
+Memória persistente, inspecionável e conectada para agentes de IA, usando Markdown compatível com Obsidian. O novo grafo contém relações explícitas e justificadas entre memórias.
 
 O agente salva decisões, fatos e aprendizados como notas Markdown. Em outra sessão, recupera o contexto por projeto, com as fontes originais. Decisões substituídas continuam no histórico e saem da busca padrão.
+
+## Novidades da versão 0.2: grafo de memória
+
+- Relações tipadas entre memórias do mesmo projeto: `supports`, `contradicts`, `depends_on` e `related_to`.
+- Links `[[UUID]]` gerados nos arquivos de memória para uso com o **Graph View nativo do Obsidian**.
+- Ferramentas MCP `relate_memory`, `unrelate_memory`, `memory_graph`, `graph_context` e `graph_mermaid`.
+- Consultas de vizinhança por UUID, com profundidade e quantidade de nós limitadas.
+- Relacionamentos **não são inferidos automaticamente**; os agentes devem indicar o motivo de cada conexão.
+- Guia para hospedar o armazenamento e o servidor MCP no **Arduino UNO Q**, com Codex no Windows via SSH/Tailscale, sem expor uma API pública.
+
+Veja [grafo e consultas de contexto](graph-memory.md) e [instalação no Arduino UNO Q](arduino-deployment.md).
+
+Execute `npm.cmd run demo:graph` para validar três memórias, duas relações e seus links nativos no Obsidian usando dados fictícios em um vault temporário.
+
+Descompacte o ZIP completo desta atualização. Um clone do GitHub só terá as novas ferramentas após as alterações serem publicadas no repositório original.
 
 ## Rodar no Windows
 
@@ -43,6 +58,17 @@ Para conectar uma IA, configure um host MCP para iniciar `node` com o caminho ab
 - Captura de linhas marcadas como candidatos não confirmados.
 - Importação com prévia e exportação JSONL.
 - CLI e ferramentas MCP com restrição por projeto e modo de leitura.
+
+## Exemplo de grafo na CLI
+
+```powershell
+node dist/cli.js list --vault 'C:\caminho\do\vault' --project demo-api
+node dist/cli.js relate --vault 'C:\caminho\do\vault' --project demo-api --id ID_ORIGEM --input examples/relation.json
+node dist/cli.js graph --vault 'C:\caminho\do\vault' --project demo-api --id ID_ORIGEM --depth 2
+node dist/cli.js graph-context --vault 'C:\caminho\do\vault' --project demo-api --id ID_ORIGEM
+```
+
+Substitua o UUID de destino em `examples/relation.json` pelo ID de uma segunda memória do **mesmo projeto**. Os links entre notas aparecem no Obsidian sem plugin proprietário.
 
 ## Limites desta versão
 

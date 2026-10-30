@@ -24,6 +24,11 @@ Commands:
   stats      --project <name>
   history    --project <name> --id <uuid>
   context    --project <name> --query <text>
+  graph      --project <name> [--id <center-uuid>] [--depth 1] [--max-nodes 40]
+  graph-context --project <name> --id <center-uuid> [--depth 1]
+  graph-mermaid --project <name> [--id <center-uuid>]
+  relate     --project <name> --id <uuid> --input <relation.json>
+  unrelate   --project <name> --id <uuid> --target <uuid> --relation-type supports|contradicts|depends_on|related_to
   digest     --project <name>
 
   confirm    --project <name> --id <uuid> --input <sources.json>
@@ -54,6 +59,10 @@ try {
       id: { type: 'string' },
       limit: { type: 'string' },
       'max-chars': { type: 'string' },
+      depth: { type: 'string' },
+      target: { type: 'string' },
+      'relation-type': { type: 'string' },
+      'max-nodes': { type: 'string' },
       kind: { type: 'string' },
       status: { type: 'string' },
       tag: { type: 'string', multiple: true },
@@ -88,6 +97,11 @@ try {
         'history',
         'context',
         'digest',
+        'graph',
+        'graph-context',
+        'graph-mermaid',
+        'relate',
+        'unrelate',
         'confirm',
         'add-sources',
         'batch',
@@ -185,6 +199,29 @@ try {
             kind: values.kind as 'decision' | 'fact' | 'lesson' | 'preference' | 'task' | undefined,
             status: values.status as 'confirmed' | 'hypothesis' | 'superseded' | undefined,
           });
+          break;
+        case 'graph':
+        case 'graph-context':
+        case 'graph-mermaid': {
+          const graphInput = {
+            project: required('project'),
+            ...(values.id ? { centerId: values.id } : {}),
+            depth: Number(values.depth ?? 1),
+            maxNodes: Number(values['max-nodes'] ?? 40),
+            includeHypotheses: values['include-hypotheses'] ?? false,
+            includeSuperseded: values['include-superseded'] ?? false,
+          };
+          result = command === 'graph' ? store.graph(graphInput) : command === 'graph-context'
+            ? store.graphContext(graphInput) : store.graphMermaid(graphInput);
+          break;
+        }
+        case 'relate':
+          result = store.relate(required('id'), required('project'), input());
+          break;
+        case 'unrelate':
+          if (!values.target || !values['relation-type'])
+            throw new VaultError('MISSING_OPTION', '--target and --relation-type are required');
+          result = store.unrelate(required('id'), required('project'), values.target, values['relation-type']);
           break;
         case 'stats':
           result = store.stats(required('project'));

@@ -17,6 +17,14 @@ The vault contains `RecallVault/memories/<uuid>.md`. Each memory has YAML frontm
 
 The index lives in `<vault>/.recallvault/index.sqlite`. It stores searchable copies, is ignored by the source repository, and can be deleted and rebuilt from Markdown. Search refreshes it before retrieval so edits and deletions made in Obsidian are reflected. The engine scans managed notes on retrieval, compares normalized payloads with cached rows, and updates only changed or removed records in one SQLite transaction. The FTS cache migrates automatically when source indexing is introduced. Incremental file watching and semantic search remain future work.
 
+## Typed graph layer
+
+The memory schema accepts an optional `relations` array. Each element specifies an existing in-project UUID target, a type (`supports`, `contradicts`, `depends_on`, `related_to`) and a rationale. Generated native `[[UUID]]` wikilinks are rendered into a marked Markdown footer on the source note to populate the actual Obsidian Graph View. The footer is stripped when reading the original memory content to prevent polluting FTS, duplicate detection or agent context.
+
+`src/graph.ts` builds bounded in-memory adjacency from the reconciled Markdown records and the existing supersession metadata. No second graph database is used. The graph's missing target IDs are explicit; links into other projects are forbidden by the `relate` write operation. Default graph visibility follows confirmed, active memories only. `graphContext` traverses a limited neighborhood and returns source-attributed passages and directed edges. `graphMermaid` emits portable Mermaid source.
+
+The graph API does not infer semantic relationships and does not resolve contradictions automatically. The relevant test file is `test/graph.test.ts`.
+
 ## Retrieval
 
 Use SQLite FTS5 with Unicode tokenization and ranked keyword matches. Project scope is mandatory. Default retrieval excludes hypotheses and superseded memories. Explicit flags can include them. Title, body, tags, source references, and source excerpts are searchable with different BM25 weights. Optional kind/tag filters, all-keyword mode, and prefix matching narrow retrieval. Relevant windows preserve UTF-16 surrogate pairs. Return sources and matched terms; content budgets exclude metadata. MCP also enforces a serialized-result ceiling.

@@ -1,8 +1,16 @@
 import { parse, stringify } from 'yaml';
 import { metadataSchema, VaultError, type Memory, type Metadata } from './schema.js';
 
+const GRAPH_START = '<!-- recallvault:links:start -->';
+const GRAPH_END = '<!-- recallvault:links:end -->';
+
 export function serializeMemory(meta: Metadata, content: string): string {
-  return `---\n${stringify(meta, { lineWidth: 0 })}---\n\n# ${meta.title}\n\n${content.trim()}\n`;
+  const links = meta.relations.length === 0
+    ? ''
+    : `\n\n${GRAPH_START}\n\n## Related memories\n\n${meta.relations
+        .map((r) => `- ${r.type.replaceAll('_', ' ')}: [[${r.target}]] — ${r.rationale.replace(/[\r\n\[\]<>|]/g, ' ')}`)
+        .join('\n')}\n\n${GRAPH_END}`;
+  return `---\n${stringify(meta, { lineWidth: 0 })}---\n\n# ${meta.title}\n\n${content.trim()}${links}\n`;
 }
 
 export function parseMemory(raw: string, relativePath: string): Memory {
@@ -17,6 +25,8 @@ export function parseMemory(raw: string, relativePath: string): Memory {
         throw new Error('Heading and title differ; update both');
       body = lines.slice(1).join('\n').trim();
     }
+    const graphBlock = new RegExp(`\\n\\n${GRAPH_START}[\\s\\S]*?${GRAPH_END}$`);
+    body = body.replace(graphBlock, '').trim();
     if (!body || body.length > 20000) throw new Error('Content must contain 1 to 20000 characters');
     return { ...meta, content: body, path: relativePath };
   } catch (error) {

@@ -8,6 +8,9 @@ import {
   searchSchema,
   listSchema,
   sourceSchema,
+  relationSchema,
+  relationTypeSchema,
+  graphSchema,
   VaultError,
 } from './schema.js';
 
@@ -51,7 +54,7 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
         throw new VaultError('PROJECT_DENIED', 'Project is outside this server scope');
       return action();
     });
-  const server = new McpServer({ name: 'recallvault', version: '0.1.0' }, { instructions });
+  const server = new McpServer({ name: 'recallvault', version: '0.2.0' }, { instructions });
   const read = {
     readOnlyHint: true,
     destructiveHint: false,
@@ -94,6 +97,38 @@ export function createServer(store: MemoryStore, options: ServerOptions = {}): M
     },
     async (input) => execute(input.project, () => store.search(input)),
   );
+
+  server.registerTool('memory_graph', {
+    description: 'Get a typed, evidence-backed graph of project memories with missing targets. Optional centerId expands a bounded neighborhood.',
+    inputSchema: graphSchema,
+    annotations: read,
+  }, async (input) => execute(input.project, () => store.graph(input)));
+
+  server.registerTool('graph_context', {
+    description: 'Build bounded source-attributed context from a graph neighborhood, not an unrelated keyword list.',
+    inputSchema: graphSchema,
+    annotations: read,
+  }, async (input) => execute(input.project, () => store.graphContext(input)));
+
+  server.registerTool('graph_mermaid', {
+    description: 'Render project memory relationships as Mermaid flowchart text.',
+    inputSchema: graphSchema,
+    annotations: read,
+  }, async (input) => execute(input.project, () => store.graphMermaid(input)));
+
+  if (!options.readOnly) server.registerTool('relate_memory', {
+    description: 'Connect two existing project memories using an explicit relation and human-reviewable rationale.',
+    inputSchema: z.object({ id: idSchema, project: projectSchema, relation: relationSchema }).strict(),
+    annotations: write,
+  }, async ({ id, project, relation }) => execute(project, () => store.relate(id, project, relation)));
+
+  if (!options.readOnly) server.registerTool('unrelate_memory', {
+    description: 'Remove an existing declared graph edge, preserving its source memory and unrelated links.',
+    inputSchema: z.object({
+      id: idSchema, project: projectSchema, target: idSchema, type: relationTypeSchema,
+    }).strict(),
+    annotations: destructive,
+  }, async ({ id, project, target, type }) => execute(project, () => store.unrelate(id, project, target, type)));
 
   server.registerTool(
     'get_memory',

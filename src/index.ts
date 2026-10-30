@@ -1,4 +1,8 @@
 export { MemoryStore } from './store.js';
+export { buildGraph, graphToMermaid } from './graph.js';
+export type { GraphResult, GraphNode, GraphEdge } from './graph.js';
+export { graphSchema, relationSchema } from './schema.js';
+export type { GraphInput } from './schema.js';
 export { memoryInputSchema, searchSchema, VaultError } from './schema.js';
 export type { Memory, MemoryInput, Metadata, SearchInput, SearchResult } from './schema.js';
 
